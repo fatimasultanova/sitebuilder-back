@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: manage-system-back
+
+  # Docker Compose Postgres-i söndürür, aşağıdakı datasource istifadə olunur
+  docker:
+    compose:
+      enabled: false
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: 102007fs
+
+  jpa:
+    open-in-view: false
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        default_schema: sitebuilder-data
+        hbm2ddl:
+          create_namespaces: true
