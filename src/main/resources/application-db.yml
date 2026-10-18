@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/postgres  # Əgər 'postgres' bazasını işlədirsənsə
+    username: postgres
+    password: 102007fs
+  jpa:
+    properties:
+      hibernate:
+        default_schema: sitebuilder-data  # Bütün cədvəllər avtomatik bu sxemada yaradılacaq
+    hibernate:
+      ddl-auto: update
+    show-sql: true

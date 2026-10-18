@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  */
 
 @Entity
-@Table(name = "subscriptions")
+@Table(schema = "sitebuilder-data", name = "subscriptions")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Subscription {
     @Id

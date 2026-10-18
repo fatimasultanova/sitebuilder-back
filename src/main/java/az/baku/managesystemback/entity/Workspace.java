@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  */
 
 @Entity
-@Table(name = "workspaces")
+@Table(schema = "sitebuilder-data", name = "workspaces")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Workspace {
     @Id

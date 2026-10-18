@@ -5,7 +5,7 @@ import lombok.*;
  * @author Fatima Sultanova
  */
 @Entity
-@Table(name = "pages")
+@Table(schema = "sitebuilder-data", name = "pages")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Page {
     @Id

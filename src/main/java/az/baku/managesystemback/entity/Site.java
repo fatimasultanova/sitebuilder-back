@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
  * @author Fatima Sultanova
  */
 @Entity
-@Table(name = "sites")
+@Table(schema = "sitebuilder-data", name = "sites")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Site {
     @Id

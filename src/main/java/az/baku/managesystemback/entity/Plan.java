@@ -7,7 +7,7 @@ import java.math.BigDecimal;
  */
 
 @Entity
-@Table(name = "plans")
+@Table(schema = "sitebuilder-data", name = "plans")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Plan {
     @Id

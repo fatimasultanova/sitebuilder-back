@@ -5,7 +5,7 @@ import lombok.*;
  * @author Fatima Sultanova
  */
 @Entity
-@Table(name = "templates")
+@Table(schema = "sitebuilder-data" ,name = "templates")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Template {
     @Id
