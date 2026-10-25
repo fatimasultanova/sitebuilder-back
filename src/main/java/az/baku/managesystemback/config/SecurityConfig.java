@@ -50,7 +50,7 @@ public class SecurityConfig {
         @Override
         public void addCorsMappings(CorsRegistry registry) {
             registry.addMapping("/api/**")
-                    .allowedOrigins("https://manage-system-phi.vercel.app") // Vercel domeninizi yazın
+                    .allowedOriginPatterns("https://manage-system-phi.vercel.app", "https://*.up.railway.app", "http://localhost*") // Bütün vacib ünvanlara icazə veririk
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                     .allowedHeaders("*")
                     .allowCredentials(true);
