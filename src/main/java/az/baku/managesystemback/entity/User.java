@@ -35,11 +35,17 @@ public class User {
     private String password;
 
     // Sistem daxilində ümumi rol (Məsələn: ROLE_USER, ROLE_ADMIN)
+    @Builder.Default
     @Column(nullable = false)
     private String role = "ROLE_USER";
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true; // Hesab aktivdir ya yox
+
+    @Builder.Default
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default true")
+    private boolean emailVerified = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

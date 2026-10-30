@@ -1,50 +1,265 @@
 package az.baku.managesystemback.service;
 
+import az.baku.managesystemback.config.AuthProperties;
+import az.baku.managesystemback.dto.request.ForgotPasswordRequest;
 import az.baku.managesystemback.dto.request.LoginRequest;
 import az.baku.managesystemback.dto.request.RegisterRequest;
+import az.baku.managesystemback.dto.request.ResendVerificationRequest;
+import az.baku.managesystemback.dto.request.ResetPasswordRequest;
+import az.baku.managesystemback.dto.request.VerifyEmailRequest;
 import az.baku.managesystemback.dto.response.AuthResponse;
+import az.baku.managesystemback.dto.response.LoginResponse;
+import az.baku.managesystemback.dto.response.UserResponse;
+import az.baku.managesystemback.entity.AuthSession;
+import az.baku.managesystemback.entity.EmailVerificationToken;
+import az.baku.managesystemback.entity.PasswordResetToken;
 import az.baku.managesystemback.entity.User;
+import az.baku.managesystemback.exception.ApiException;
+import az.baku.managesystemback.repository.AuthSessionRepository;
+import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
+import az.baku.managesystemback.repository.PasswordResetTokenRepository;
 import az.baku.managesystemback.repository.UserRepository;
+import az.baku.managesystemback.util.RoleUtils;
+import az.baku.managesystemback.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder; // Əlavə olundu
+    private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid email or password.";
+    private static final String INVALID_RESET_TOKEN_MESSAGE = "Password reset token is invalid or has expired.";
+    private static final String INVALID_VERIFICATION_TOKEN_MESSAGE = "Verification token is invalid or has expired.";
+    private static final String GENERIC_RESET_MESSAGE =
+            "If an account with that email exists, a password reset link has been sent.";
+    private static final String GENERIC_VERIFICATION_MESSAGE =
+            "If an account with that email exists and is not verified, a verification email has been sent.";
 
+    private static final String DUMMY_PASSWORD_HASH =
+            "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
+    private final UserRepository userRepository;
+    private final AuthSessionRepository authSessionRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final AuthProperties authProperties;
+
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Bu email ilə artıq qeydiyyatdan keçilib!");
+        String email = normalizeEmail(request.getEmail());
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "An account with this email already exists.",
+                    Map.of("email", List.of("An account with this email already exists."))
+            );
         }
 
         User user = User.builder()
-                .name(request.getName())
-                .surname(request.getSurname())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // Şifrə hash-lənərək saxlanılır!
-                .role("ROLE_USER")
+                .name(request.getName().trim())
+                .surname(request.getSurname().trim())
+                .email(email)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(RoleUtils.toStoredRole(RoleUtils.USER))
                 .enabled(true)
+                .emailVerified(false)
                 .build();
 
         userRepository.save(user);
+        issueVerificationToken(user);
 
         return mapToAuthResponse(user);
     }
 
-    public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("İstifadəçi tapılmadı!"));
+    @Transactional
+    public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
+        String email = normalizeEmail(request.getEmail());
+        Optional<User> userOptional = userRepository.findByEmailIgnoreCase(email);
 
-        // Daxil edilən şifrə ilə bazadakı hash-lənmiş şifrəni müqayisə edirik
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Şifrə yanlışdır!");
+        if (userOptional.isEmpty()) {
+            passwordEncoder.matches(request.getPassword(), DUMMY_PASSWORD_HASH);
+            throw invalidCredentials();
         }
 
-        return mapToAuthResponse(user);
+        User user = userOptional.get();
+
+        if (!passwordMatches(request.getPassword(), user.getPassword())) {
+            throw invalidCredentials();
+        }
+
+        if (!user.isEnabled()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account has been disabled.");
+        }
+
+        if (!user.isEmailVerified()) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Email address has not been verified. Please check your inbox or request a new verification email."
+            );
+        }
+
+        try {
+            RoleUtils.normalize(user.getRole());
+        } catch (IllegalArgumentException ex) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account role is not authorized.");
+        }
+
+        String rawToken = createSession(user, ipAddress, userAgent);
+        return new LoginResponse(rawToken, UserResponse.from(user));
+    }
+
+    @Transactional
+    public String forgotPassword(ForgotPasswordRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        userRepository.findByEmailIgnoreCase(email)
+                .filter(User::isEnabled)
+                .ifPresent(user -> {
+                    passwordResetTokenRepository.deleteAllByUser(user);
+
+                    String rawToken = TokenUtils.generateToken();
+                    Instant now = Instant.now();
+
+                    PasswordResetToken resetToken = PasswordResetToken.builder()
+                            .tokenHash(TokenUtils.sha256(rawToken))
+                            .user(user)
+                            .createdAt(now)
+                            .expiresAt(now.plus(authProperties.getPasswordResetTokenTtl()))
+                            .build();
+
+                    passwordResetTokenRepository.save(resetToken);
+                    emailService.sendPasswordResetEmail(user, rawToken);
+                });
+
+        return GENERIC_RESET_MESSAGE;
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String tokenHash = TokenUtils.sha256(request.getToken().trim());
+        Instant now = Instant.now();
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHashWithUser(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, INVALID_RESET_TOKEN_MESSAGE));
+
+        if (!resetToken.isUsable(now)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_RESET_TOKEN_MESSAGE);
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        passwordResetTokenRepository.deleteAllByUser(user);
+        authSessionRepository.deleteAllByUser(user);
+    }
+
+    @Transactional
+    public String resendVerification(ResendVerificationRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        userRepository.findByEmailIgnoreCase(email)
+                .filter(User::isEnabled)
+                .filter(user -> !user.isEmailVerified())
+                .ifPresent(this::issueVerificationToken);
+
+        return GENERIC_VERIFICATION_MESSAGE;
+    }
+
+    @Transactional
+    public String verifyEmail(VerifyEmailRequest request) {
+        String tokenHash = TokenUtils.sha256(request.getToken().trim());
+        Instant now = Instant.now();
+
+        EmailVerificationToken verificationToken = emailVerificationTokenRepository
+                .findByTokenHashWithUser(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, INVALID_VERIFICATION_TOKEN_MESSAGE));
+
+        if (!verificationToken.isUsable(now)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_VERIFICATION_TOKEN_MESSAGE);
+        }
+
+        User user = verificationToken.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        emailVerificationTokenRepository.deleteAllByUser(user);
+
+        return "Email address verified successfully.";
+    }
+
+    private void issueVerificationToken(User user) {
+        emailVerificationTokenRepository.deleteAllByUser(user);
+
+        String rawToken = TokenUtils.generateToken();
+        Instant now = Instant.now();
+
+        EmailVerificationToken verificationToken = EmailVerificationToken.builder()
+                .tokenHash(TokenUtils.sha256(rawToken))
+                .user(user)
+                .createdAt(now)
+                .expiresAt(now.plus(authProperties.getEmailVerificationTokenTtl()))
+                .build();
+
+        emailVerificationTokenRepository.save(verificationToken);
+        emailService.sendEmailVerificationEmail(user, rawToken);
+    }
+
+    private String createSession(User user, String ipAddress, String userAgent) {
+        String rawToken = TokenUtils.generateToken();
+        Instant now = Instant.now();
+
+        AuthSession session = AuthSession.builder()
+                .tokenHash(TokenUtils.sha256(rawToken))
+                .user(user)
+                .createdAt(now)
+                .expiresAt(now.plus(authProperties.getSessionTtl()))
+                .lastUsedAt(now)
+                .ipAddress(truncate(ipAddress, 45))
+                .userAgent(truncate(userAgent, 512))
+                .build();
+
+        authSessionRepository.save(session);
+        return rawToken;
+    }
+
+    private boolean passwordMatches(String rawPassword, String storedHash) {
+        try {
+            return passwordEncoder.matches(rawPassword, storedHash);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    private ApiException invalidCredentials() {
+        return new ApiException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Email is required.");
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 
     private AuthResponse mapToAuthResponse(User user) {
@@ -53,8 +268,9 @@ public class AuthService {
                 .name(user.getName())
                 .surname(user.getSurname())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .role(RoleUtils.normalize(user.getRole()))
                 .enabled(user.isEnabled())
+                .emailVerified(user.isEmailVerified())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

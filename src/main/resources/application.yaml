@@ -24,3 +24,14 @@ spring:
         default_schema: sitebuilder-data
         hbm2ddl:
           create_namespaces: true
+
+app:
+  auth:
+    session-ttl: ${AUTH_SESSION_TTL:7d}
+    password-reset-token-ttl: ${AUTH_RESET_TOKEN_TTL:30m}
+    email-verification-token-ttl: ${AUTH_VERIFICATION_TOKEN_TTL:24h}
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+    password-reset-path: ${PASSWORD_RESET_PATH:/reset-password}
+    email-verification-path: ${EMAIL_VERIFICATION_PATH:/verify-email}
+    email-enabled: ${AUTH_EMAIL_ENABLED:false}
+    from-email: ${AUTH_EMAIL_FROM:no-reply@sitebuilder.local}
