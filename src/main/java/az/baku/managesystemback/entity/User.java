@@ -25,7 +25,6 @@ public class User {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
     private String surname;
 
     @Column(nullable = false, unique = true)
@@ -44,8 +43,8 @@ public class User {
     private boolean enabled = true; // Hesab aktivdir ya yox
 
     @Builder.Default
-    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default true")
-    private boolean emailVerified = true;
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
+    private boolean emailVerified = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

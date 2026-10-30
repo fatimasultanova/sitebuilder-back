@@ -6,7 +6,6 @@ import az.baku.managesystemback.dto.request.RegisterRequest;
 import az.baku.managesystemback.dto.request.ResendVerificationRequest;
 import az.baku.managesystemback.dto.request.ResetPasswordRequest;
 import az.baku.managesystemback.dto.request.VerifyEmailRequest;
-import az.baku.managesystemback.dto.response.AuthResponse;
 import az.baku.managesystemback.dto.response.LoginResponse;
 import az.baku.managesystemback.dto.response.MessageResponse;
 import az.baku.managesystemback.service.AuthService;
@@ -14,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,9 +29,10 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<MessageResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new MessageResponse(authService.register(request)));
     }
 
     @PostMapping("/login")

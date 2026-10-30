@@ -7,7 +7,6 @@ import az.baku.managesystemback.dto.request.RegisterRequest;
 import az.baku.managesystemback.dto.request.ResendVerificationRequest;
 import az.baku.managesystemback.dto.request.ResetPasswordRequest;
 import az.baku.managesystemback.dto.request.VerifyEmailRequest;
-import az.baku.managesystemback.dto.response.AuthResponse;
 import az.baku.managesystemback.dto.response.LoginResponse;
 import az.baku.managesystemback.dto.response.UserResponse;
 import az.baku.managesystemback.entity.AuthSession;
@@ -22,6 +21,7 @@ import az.baku.managesystemback.repository.UserRepository;
 import az.baku.managesystemback.util.RoleUtils;
 import az.baku.managesystemback.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -44,6 +44,9 @@ public class AuthService {
             "If an account with that email exists, a password reset link has been sent.";
     private static final String GENERIC_VERIFICATION_MESSAGE =
             "If an account with that email exists and is not verified, a verification email has been sent.";
+    private static final String EMAIL_IN_USE_MESSAGE = "This email is already in use.";
+    private static final String REGISTRATION_SUCCESS_MESSAGE =
+            "Account created successfully. Please check your email to verify your account.";
 
     private static final String DUMMY_PASSWORD_HASH =
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
@@ -57,20 +60,18 @@ public class AuthService {
     private final AuthProperties authProperties;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public String register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "An account with this email already exists.",
-                    Map.of("email", List.of("An account with this email already exists."))
-            );
+            throw emailAlreadyInUse();
         }
 
+        NameParts nameParts = splitName(request.getName(), request.getSurname());
+
         User user = User.builder()
-                .name(request.getName().trim())
-                .surname(request.getSurname().trim())
+                .name(nameParts.name())
+                .surname(nameParts.surname())
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(RoleUtils.toStoredRole(RoleUtils.USER))
@@ -78,10 +79,15 @@ public class AuthService {
                 .emailVerified(false)
                 .build();
 
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw emailAlreadyInUse();
+        }
+
         issueVerificationToken(user);
 
-        return mapToAuthResponse(user);
+        return REGISTRATION_SUCCESS_MESSAGE;
     }
 
     @Transactional
@@ -255,6 +261,32 @@ public class AuthService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
+    private NameParts splitName(String rawName, String rawSurname) {
+        String name = rawName == null ? "" : rawName.trim();
+        String surname = rawSurname == null ? "" : rawSurname.trim();
+
+        if (surname.isEmpty()) {
+            int separator = name.indexOf(' ');
+            if (separator > 0) {
+                String combinedSurname = name.substring(separator + 1).trim();
+                if (!combinedSurname.isEmpty()) {
+                    surname = combinedSurname;
+                    name = name.substring(0, separator).trim();
+                }
+            }
+        }
+
+        return new NameParts(name, surname.isEmpty() ? null : surname);
+    }
+
+    private ApiException emailAlreadyInUse() {
+        return new ApiException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                EMAIL_IN_USE_MESSAGE,
+                Map.of("email", List.of(EMAIL_IN_USE_MESSAGE))
+        );
+    }
+
     private String truncate(String value, int maxLength) {
         if (value == null || value.length() <= maxLength) {
             return value;
@@ -262,16 +294,6 @@ public class AuthService {
         return value.substring(0, maxLength);
     }
 
-    private AuthResponse mapToAuthResponse(User user) {
-        return AuthResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .surname(user.getSurname())
-                .email(user.getEmail())
-                .role(RoleUtils.normalize(user.getRole()))
-                .enabled(user.isEnabled())
-                .emailVerified(user.isEmailVerified())
-                .createdAt(user.getCreatedAt())
-                .build();
+    private record NameParts(String name, String surname) {
     }
 }
