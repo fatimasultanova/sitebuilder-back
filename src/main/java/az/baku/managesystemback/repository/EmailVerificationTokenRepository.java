@@ -14,6 +14,8 @@ public interface EmailVerificationTokenRepository extends JpaRepository<EmailVer
     @Query("select t from EmailVerificationToken t join fetch t.user where t.tokenHash = :tokenHash")
     Optional<EmailVerificationToken> findByTokenHashWithUser(@Param("tokenHash") String tokenHash);
 
+    Optional<EmailVerificationToken> findFirstByUserOrderByCreatedAtDesc(User user);
+
     @Modifying
     @Query("delete from EmailVerificationToken t where t.user = :user")
     void deleteAllByUser(@Param("user") User user);

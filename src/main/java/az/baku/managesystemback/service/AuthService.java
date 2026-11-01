@@ -13,6 +13,8 @@ import az.baku.managesystemback.entity.AuthSession;
 import az.baku.managesystemback.entity.EmailVerificationToken;
 import az.baku.managesystemback.entity.PasswordResetToken;
 import az.baku.managesystemback.entity.User;
+import az.baku.managesystemback.event.PasswordResetEmailRequested;
+import az.baku.managesystemback.event.VerificationEmailRequested;
 import az.baku.managesystemback.exception.ApiException;
 import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
@@ -21,12 +23,14 @@ import az.baku.managesystemback.repository.UserRepository;
 import az.baku.managesystemback.util.RoleUtils;
 import az.baku.managesystemback.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -56,7 +60,7 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final AuthProperties authProperties;
 
     @Transactional
@@ -147,7 +151,9 @@ public class AuthService {
                             .build();
 
                     passwordResetTokenRepository.save(resetToken);
-                    emailService.sendPasswordResetEmail(user, rawToken);
+                    eventPublisher.publishEvent(
+                            new PasswordResetEmailRequested(user.getEmail(), displayName(user), rawToken)
+                    );
                 });
 
         return GENERIC_RESET_MESSAGE;
@@ -176,11 +182,17 @@ public class AuthService {
     @Transactional
     public String resendVerification(ResendVerificationRequest request) {
         String email = normalizeEmail(request.getEmail());
+        Instant now = Instant.now();
 
         userRepository.findByEmailIgnoreCase(email)
                 .filter(User::isEnabled)
                 .filter(user -> !user.isEmailVerified())
-                .ifPresent(this::issueVerificationToken);
+                .ifPresent(user -> {
+                    if (isResendCooldownActive(user, now)) {
+                        return;
+                    }
+                    issueVerificationToken(user);
+                });
 
         return GENERIC_VERIFICATION_MESSAGE;
     }
@@ -221,7 +233,29 @@ public class AuthService {
                 .build();
 
         emailVerificationTokenRepository.save(verificationToken);
-        emailService.sendEmailVerificationEmail(user, rawToken);
+        eventPublisher.publishEvent(
+                new VerificationEmailRequested(user.getEmail(), displayName(user), rawToken)
+        );
+    }
+
+    private boolean isResendCooldownActive(User user, Instant now) {
+        Duration cooldown = authProperties.getResendCooldown();
+        if (cooldown == null || cooldown.isZero() || cooldown.isNegative()) {
+            return false;
+        }
+
+        Instant cooldownStart = now.minus(cooldown);
+        return emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(user)
+                .map(EmailVerificationToken::getCreatedAt)
+                .filter(createdAt -> createdAt != null && createdAt.isAfter(cooldownStart))
+                .isPresent();
+    }
+
+    private String displayName(User user) {
+        if (user.getSurname() == null || user.getSurname().isBlank()) {
+            return user.getName();
+        }
+        return user.getName() + " " + user.getSurname();
     }
 
     private String createSession(User user, String ipAddress, String userAgent) {

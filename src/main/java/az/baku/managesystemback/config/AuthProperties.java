@@ -22,5 +22,7 @@ public class AuthProperties {
     private String emailVerificationPath = "/verify-email";
 
     private boolean emailEnabled = false;
-    private String fromEmail = "fatimasultanova.909@gmail.com";
+    private String fromEmail = "Site Builder <fatimasultanova.909@gmail.com>";
+    private String emailLocale = "az";
+    private Duration resendCooldown = Duration.ofSeconds(60);
 }
