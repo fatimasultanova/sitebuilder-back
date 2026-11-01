@@ -17,12 +17,12 @@ public class AuthProperties {
     private Duration passwordResetTokenTtl = Duration.ofMinutes(30);
     private Duration emailVerificationTokenTtl = Duration.ofHours(24);
 
-    private String frontendBaseUrl = "http://localhost:3000";
+    private String frontendBaseUrl = "https://manage-system-phi.vercel.app";
     private String passwordResetPath = "/reset-password";
     private String emailVerificationPath = "/verify-email";
 
     private boolean emailEnabled = false;
-    private String fromEmail = "Site Builder <no-reply@sitebuilder.local>";
+    private String fromEmail = "Site Builder <fatimasultanova.909@gmail.com>";
     private String emailLocale = "az";
     private Duration resendCooldown = Duration.ofSeconds(60);
 }
