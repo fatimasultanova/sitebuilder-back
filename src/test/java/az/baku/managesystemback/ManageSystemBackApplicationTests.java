@@ -3,7 +3,10 @@ package az.baku.managesystemback;
 import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
+import az.baku.managesystemback.repository.SiteRepository;
+import az.baku.managesystemback.repository.TemplateRepository;
 import az.baku.managesystemback.repository.UserRepository;
+import az.baku.managesystemback.repository.WorkspaceRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -36,6 +39,15 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private EmailVerificationTokenRepository emailVerificationTokenRepository;
+
+    @MockitoBean
+    private SiteRepository siteRepository;
+
+    @MockitoBean
+    private WorkspaceRepository workspaceRepository;
+
+    @MockitoBean
+    private TemplateRepository templateRepository;
 
     @Test
     void contextLoads() {
