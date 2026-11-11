@@ -21,7 +21,7 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public List<TemplateResponse> listAvailableTemplates() {
-        return templateRepository.findPublishedTemplates()
+        return templateRepository.findActiveTemplates()
                 .stream()
                 .map(TemplateMapper::toResponse)
                 .toList();

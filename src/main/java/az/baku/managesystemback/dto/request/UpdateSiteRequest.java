@@ -1,7 +1,6 @@
 package az.baku.managesystemback.dto.request;
 
 import az.baku.managesystemback.entity.SiteStatus;
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -12,6 +11,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.Map;
 
 /**
  * @author Fatima Sultanova
@@ -39,7 +40,7 @@ public class UpdateSiteRequest {
     private String slug;
 
     @NotNull(message = "Content is required.")
-    private JsonNode content;
+    private Map<String, Object> content;
 
     private SiteStatus status;
 }

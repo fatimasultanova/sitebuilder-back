@@ -1,12 +1,12 @@
 package az.baku.managesystemback.dto.response;
 
 import az.baku.managesystemback.entity.SiteStatus;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * @author Fatima Sultanova
@@ -22,7 +22,7 @@ public class SiteResponse {
     private final String projectName;
     private final String slug;
     private final SiteStatus status;
-    private final JsonNode content;
+    private final Map<String, Object> content;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
 }

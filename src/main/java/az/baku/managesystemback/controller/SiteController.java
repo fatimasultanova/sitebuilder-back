@@ -4,6 +4,7 @@ import az.baku.managesystemback.dto.request.CreateSiteRequest;
 import az.baku.managesystemback.dto.request.UpdateSiteRequest;
 import az.baku.managesystemback.dto.response.SiteResponse;
 import az.baku.managesystemback.dto.response.SiteSummaryResponse;
+import az.baku.managesystemback.entity.SiteStatus;
 import az.baku.managesystemback.security.AuthenticatedUser;
 import az.baku.managesystemback.service.SiteService;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -45,9 +47,11 @@ public class SiteController {
 
     @GetMapping
     public ResponseEntity<List<SiteSummaryResponse>> listSites(
-            @AuthenticationPrincipal AuthenticatedUser principal
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @RequestParam(required = false) SiteStatus status,
+            @RequestParam(required = false) String search
     ) {
-        return ResponseEntity.ok(siteService.listSites(principal.id()));
+        return ResponseEntity.ok(siteService.listSites(principal.id(), status, search));
     }
 
     @GetMapping("/{id}")
@@ -74,5 +78,16 @@ public class SiteController {
     ) {
         siteService.deleteSite(principal.id(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/duplicate")
+    public ResponseEntity<SiteResponse> duplicateSite(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @PathVariable long id
+    ) {
+        SiteResponse response = siteService.duplicateSite(principal.id(), id);
+        return ResponseEntity
+                .created(URI.create("/api/sites/" + response.getId()))
+                .body(response);
     }
 }

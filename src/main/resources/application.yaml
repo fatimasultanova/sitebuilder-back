@@ -17,6 +17,7 @@ spring:
   jpa:
     open-in-view: false
     show-sql: true
+    defer-datasource-initialization: true
     hibernate:
       ddl-auto: update
     properties:
@@ -24,6 +25,10 @@ spring:
         default_schema: sitebuilder-data
         hbm2ddl:
           create_namespaces: true
+
+  sql:
+    init:
+      mode: always
 
 app:
   mail:

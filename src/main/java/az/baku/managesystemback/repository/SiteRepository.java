@@ -1,8 +1,11 @@
 package az.baku.managesystemback.repository;
 
 import az.baku.managesystemback.entity.Site;
+import az.baku.managesystemback.entity.SiteStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,12 +16,25 @@ import java.util.Optional;
 public interface SiteRepository extends JpaRepository<Site, Long> {
 
     @EntityGraph(attributePaths = "template")
-    List<Site> findAllByWorkspaceOwnerIdOrderByCreatedAtDesc(long ownerId);
+    @Query("""
+            select s from Site s
+            where s.owner.id = :ownerId
+              and (:status is null or s.status = :status)
+              and (:search is null
+                   or lower(s.projectName) like lower(concat('%', :search, '%'))
+                   or lower(s.slug) like lower(concat('%', :search, '%')))
+            order by s.createdAt desc
+            """)
+    List<Site> findAllForOwner(
+            @Param("ownerId") long ownerId,
+            @Param("status") SiteStatus status,
+            @Param("search") String search
+    );
 
     @EntityGraph(attributePaths = "template")
-    Optional<Site> findByIdAndWorkspaceOwnerId(long id, long ownerId);
+    Optional<Site> findByIdAndOwnerId(long id, long ownerId);
 
-    boolean existsByWorkspaceIdAndSlug(long workspaceId, String slug);
+    boolean existsBySlug(String slug);
 
-    boolean existsByWorkspaceIdAndSlugAndIdNot(long workspaceId, String slug, long id);
+    boolean existsBySlugAndIdNot(String slug, long id);
 }

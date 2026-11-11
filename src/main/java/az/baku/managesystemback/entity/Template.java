@@ -1,10 +1,15 @@
 package az.baku.managesystemback.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
+
+import java.time.OffsetDateTime;
+import java.util.Map;
 
 /**
  * @author Fatima Sultanova
@@ -22,27 +27,59 @@ public class Template {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(nullable = false)
+    @Column(name = "slug", nullable = false, unique = true)
+    private String slug;
+
+    @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private String category; // e.g., Business, Portfolio, E-commerce
+    @Column(name = "category", nullable = false)
+    private String category;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "text")
+    @ColumnDefault("''")
     private String description;
 
+    @Column(name = "preview_image_url")
     private String previewImageUrl;
 
-    @Column(nullable = false)
+    @Column(name = "premium", nullable = false)
+    @ColumnDefault("false")
     @Builder.Default
-    private boolean isPremium = false;
+    private boolean premium = false;
 
-    @Column(nullable = false)
+    @Column(name = "is_active", nullable = false)
+    @ColumnDefault("true")
     @Builder.Default
-    private boolean isPublished = true;
+    private boolean active = true;
 
-    // Default design/structure configuration of the template
+    @Column(name = "sort_order", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private int sortOrder = 0;
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "theme_config", columnDefinition = "jsonb")
-    private JsonNode themeConfig;
+    @Column(name = "theme_config", columnDefinition = "jsonb", nullable = false)
+    @ColumnDefault("'{}'")
+    private Map<String, Object> themeConfig;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "translations", columnDefinition = "jsonb", nullable = false)
+    @ColumnDefault("'{}'")
+    private Map<String, Object> translations;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "structure", columnDefinition = "jsonb", nullable = false)
+    @ColumnDefault("'{}'")
+    private Map<String, Object> structure;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "timestamptz")
+    @ColumnDefault("now()")
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false, columnDefinition = "timestamptz")
+    @ColumnDefault("now()")
+    private OffsetDateTime updatedAt;
 }
