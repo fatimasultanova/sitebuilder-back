@@ -2,8 +2,14 @@ package az.baku.managesystemback;
 
 import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
+import az.baku.managesystemback.repository.InvoiceRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
+import az.baku.managesystemback.repository.PaymentMethodRepository;
+import az.baku.managesystemback.repository.PaymentRepository;
+import az.baku.managesystemback.repository.PaymentSessionRepository;
+import az.baku.managesystemback.repository.PlanRepository;
 import az.baku.managesystemback.repository.SiteRepository;
+import az.baku.managesystemback.repository.SubscriptionRepository;
 import az.baku.managesystemback.repository.TemplateRepository;
 import az.baku.managesystemback.repository.UserRepository;
 import az.baku.managesystemback.repository.WorkspaceRepository;
@@ -48,6 +54,24 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private TemplateRepository templateRepository;
+
+    @MockitoBean
+    private PlanRepository planRepository;
+
+    @MockitoBean
+    private SubscriptionRepository subscriptionRepository;
+
+    @MockitoBean
+    private PaymentSessionRepository paymentSessionRepository;
+
+    @MockitoBean
+    private PaymentRepository paymentRepository;
+
+    @MockitoBean
+    private InvoiceRepository invoiceRepository;
+
+    @MockitoBean
+    private PaymentMethodRepository paymentMethodRepository;
 
     @Test
     void contextLoads() {

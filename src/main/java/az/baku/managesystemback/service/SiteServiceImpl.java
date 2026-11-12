@@ -4,6 +4,7 @@ import az.baku.managesystemback.dto.request.CreateSiteRequest;
 import az.baku.managesystemback.dto.request.UpdateSiteRequest;
 import az.baku.managesystemback.dto.response.SiteResponse;
 import az.baku.managesystemback.dto.response.SiteSummaryResponse;
+import az.baku.managesystemback.entity.Plan;
 import az.baku.managesystemback.entity.Site;
 import az.baku.managesystemback.entity.SiteStatus;
 import az.baku.managesystemback.entity.Template;
@@ -35,10 +36,13 @@ public class SiteServiceImpl implements SiteService {
     private static final String SITE_NOT_FOUND_MESSAGE = "Site not found.";
     private static final String TEMPLATE_UNAVAILABLE_MESSAGE = "The selected template is not available.";
     private static final String SLUG_IN_USE_MESSAGE = "This URL slug is already in use.";
+    private static final String SITE_LIMIT_REACHED_MESSAGE =
+            "Plan site limit reached. Upgrade your plan to create more sites.";
 
     private final SiteRepository siteRepository;
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
+    private final PlanLimitService planLimitService;
 
     @Override
     @Transactional
@@ -50,6 +54,8 @@ public class SiteServiceImpl implements SiteService {
         if (siteRepository.existsBySlug(slug)) {
             throw slugConflict();
         }
+
+        enforceSiteLimit(userId);
 
         Site site = SiteMapper.toEntity(request, owner, template);
         Site savedSite = siteRepository.save(site);
@@ -103,6 +109,7 @@ public class SiteServiceImpl implements SiteService {
     @Transactional
     public SiteResponse duplicateSite(long userId, long siteId) {
         Site source = findOwnedSite(userId, siteId);
+        enforceSiteLimit(userId);
 
         Site copy = Site.builder()
                 .owner(source.getOwner())
@@ -121,6 +128,27 @@ public class SiteServiceImpl implements SiteService {
     private Site findOwnedSite(long userId, long siteId) {
         return siteRepository.findByIdAndOwnerId(siteId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, SITE_NOT_FOUND_MESSAGE));
+    }
+
+    private void enforceSiteLimit(long userId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Authenticated user not found."
+                ));
+
+        Plan plan = planLimitService.getEffectivePlan(userId).plan();
+        long sitesUsed = siteRepository.countByOwnerId(userId);
+        int maxSites = plan.getMaxSites();
+
+        if (maxSites >= 0 && sitesUsed >= maxSites) {
+            Map<String, List<String>> errors = new LinkedHashMap<>();
+            errors.put("code", List.of("PLAN_LIMIT_REACHED"));
+            errors.put("limit", List.of(String.valueOf(maxSites)));
+            errors.put("planCode", List.of(plan.getCode()));
+
+            throw new ApiException(HttpStatus.FORBIDDEN, SITE_LIMIT_REACHED_MESSAGE, errors);
+        }
     }
 
     private Template getActiveTemplate(Long templateId) {

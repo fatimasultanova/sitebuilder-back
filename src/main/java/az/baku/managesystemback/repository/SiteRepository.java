@@ -37,4 +37,6 @@ public interface SiteRepository extends JpaRepository<Site, Long> {
     boolean existsBySlug(String slug);
 
     boolean existsBySlugAndIdNot(String slug, long id);
+
+    long countByOwnerId(long ownerId);
 }

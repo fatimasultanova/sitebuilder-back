@@ -30,7 +30,11 @@ spring:
     init:
       mode: always
 
+billing:
+  provider: ${BILLING_PROVIDER:fake}
+
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
   mail:
     provider: ${MAIL_PROVIDER:brevo}
     brevo:

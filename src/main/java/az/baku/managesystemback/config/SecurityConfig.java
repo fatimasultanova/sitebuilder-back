@@ -7,6 +7,7 @@ import az.baku.managesystemback.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -62,6 +63,7 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/billing/plans", "/api/billing/plans").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -96,6 +98,7 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
         source.registerCorsConfiguration("/auth/**", configuration);
+        source.registerCorsConfiguration("/billing/**", configuration);
         return source;
     }
 }
