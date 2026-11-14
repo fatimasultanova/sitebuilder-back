@@ -8,6 +8,7 @@ import az.baku.managesystemback.dto.request.ResetPasswordRequest;
 import az.baku.managesystemback.dto.request.VerifyEmailRequest;
 import az.baku.managesystemback.dto.response.LoginResponse;
 import az.baku.managesystemback.dto.response.MessageResponse;
+import az.baku.managesystemback.security.AuthenticatedUser;
 import az.baku.managesystemback.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -64,7 +66,28 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        return ResponseEntity.ok(new MessageResponse(authService.verifyEmail(request)));
+    public ResponseEntity<MessageResponse> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request,
+            HttpServletRequest httpRequest,
+            @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent
+    ) {
+        return ResponseEntity.ok(new MessageResponse(
+                authService.verifyEmail(request, httpRequest.getRemoteAddr(), userAgent)
+        ));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            HttpServletRequest httpRequest,
+            @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent
+    ) {
+        authService.logout(
+                principal.id(),
+                principal.sessionPublicId(),
+                httpRequest.getRemoteAddr(),
+                userAgent
+        );
+        return ResponseEntity.noContent().build();
     }
 }

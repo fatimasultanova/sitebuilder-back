@@ -62,6 +62,7 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/logout", "/api/auth/logout").authenticated()
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/billing/plans", "/api/billing/plans").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
@@ -99,6 +100,8 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/api/**", configuration);
         source.registerCorsConfiguration("/auth/**", configuration);
         source.registerCorsConfiguration("/billing/**", configuration);
+        source.registerCorsConfiguration("/account/**", configuration);
+        source.registerCorsConfiguration("/notifications/**", configuration);
         return source;
     }
 }

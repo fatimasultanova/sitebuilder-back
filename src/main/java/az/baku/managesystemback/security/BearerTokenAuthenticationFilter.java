@@ -18,6 +18,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final Duration LAST_USED_UPDATE_INTERVAL = Duration.ofMinutes(1);
 
     private final AuthSessionRepository authSessionRepository;
 
@@ -51,8 +53,9 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(String rawToken, HttpServletRequest request) {
+        Instant now = Instant.now();
         Optional<AuthSession> sessionOptional = authSessionRepository
-                .findActiveByTokenHash(TokenUtils.sha256(rawToken), Instant.now());
+                .findActiveByTokenHash(TokenUtils.sha256(rawToken), now);
 
         if (sessionOptional.isEmpty()) {
             return;
@@ -72,7 +75,14 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        AuthenticatedUser principal = new AuthenticatedUser(user.getId(), user.getEmail(), role);
+        touchLastUsedAt(session, now);
+
+        AuthenticatedUser principal = new AuthenticatedUser(
+                user.getId(),
+                user.getEmail(),
+                role,
+                session.getPublicId()
+        );
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal,
                 null,
@@ -80,5 +90,18 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
         );
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private void touchLastUsedAt(AuthSession session, Instant now) {
+        Instant lastUsedAt = session.getLastUsedAt();
+        if (lastUsedAt != null && lastUsedAt.isAfter(now.minus(LAST_USED_UPDATE_INTERVAL))) {
+            return;
+        }
+
+        try {
+            session.setLastUsedAt(now);
+            authSessionRepository.save(session);
+        } catch (RuntimeException ignored) {
+        }
     }
 }

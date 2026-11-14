@@ -35,6 +35,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.List;
@@ -254,7 +256,7 @@ class BillingServiceImplTest {
         assertThat(response.amount()).isEqualByComparingTo("19.00");
         assertThat(response.invoiceId()).isEqualTo(invoiceId.toString());
         assertThat(response.invoiceNumber()).matches("INV-" + Year.now().getValue() + "-000001");
-        assertThat(response.currentPeriodEnd()).isAfter(LocalDateTime.now().plusDays(27));
+        assertThat(response.currentPeriodEnd()).isAfter(Instant.now().plus(Duration.ofDays(27)));
         assertThat(session.getStatus()).isEqualTo(PaymentSessionStatus.PAID);
 
         ArgumentCaptor<Subscription> subscriptionCaptor = ArgumentCaptor.forClass(Subscription.class);

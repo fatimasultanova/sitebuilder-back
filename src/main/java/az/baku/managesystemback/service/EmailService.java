@@ -1,6 +1,7 @@
 package az.baku.managesystemback.service;
 
 import az.baku.managesystemback.entity.User;
+import az.baku.managesystemback.event.PasswordChangedEmailRequested;
 import az.baku.managesystemback.event.PasswordResetEmailRequested;
 import az.baku.managesystemback.event.VerificationEmailRequested;
 import az.baku.managesystemback.mail.EmailContentBuilder;
@@ -72,6 +73,24 @@ public class EmailService {
         } catch (RuntimeException ex) {
             log.error(
                     "Failed to send password reset email to {}: {}.",
+                    EmailMasker.mask(event.email()),
+                    ex.getClass().getSimpleName()
+            );
+        }
+    }
+
+    @Async("mailTaskExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPasswordChangedEmailRequested(PasswordChangedEmailRequested event) {
+        try {
+            EmailMessage message = contentBuilder.passwordChangedEmail(
+                    event.email(),
+                    event.displayName()
+            );
+            emailSender.send(message);
+        } catch (RuntimeException ex) {
+            log.error(
+                    "Failed to send password changed email to {}: {}.",
                     EmailMasker.mask(event.email()),
                     ex.getClass().getSimpleName()
             );

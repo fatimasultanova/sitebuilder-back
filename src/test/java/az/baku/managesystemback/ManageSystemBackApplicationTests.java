@@ -3,11 +3,13 @@ package az.baku.managesystemback;
 import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
 import az.baku.managesystemback.repository.InvoiceRepository;
+import az.baku.managesystemback.repository.NotificationPreferencesRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
 import az.baku.managesystemback.repository.PaymentMethodRepository;
 import az.baku.managesystemback.repository.PaymentRepository;
 import az.baku.managesystemback.repository.PaymentSessionRepository;
 import az.baku.managesystemback.repository.PlanRepository;
+import az.baku.managesystemback.repository.SecurityEventRepository;
 import az.baku.managesystemback.repository.SiteRepository;
 import az.baku.managesystemback.repository.SubscriptionRepository;
 import az.baku.managesystemback.repository.TemplateRepository;
@@ -72,6 +74,12 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private PaymentMethodRepository paymentMethodRepository;
+
+    @MockitoBean
+    private SecurityEventRepository securityEventRepository;
+
+    @MockitoBean
+    private NotificationPreferencesRepository notificationPreferencesRepository;
 
     @Test
     void contextLoads() {
