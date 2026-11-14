@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,8 @@ public class PlanLimitServiceImpl implements PlanLimitService {
 
     private static final String STARTER_CODE = "STARTER";
     private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String CUSTOM_DOMAIN_NOT_ALLOWED_MESSAGE =
+            "Your plan does not include custom domains. Upgrade your plan to connect a domain.";
 
     private final WorkspaceRepository workspaceRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -36,6 +41,25 @@ public class PlanLimitServiceImpl implements PlanLimitService {
                 .filter(subscription -> isEffective(subscription, now))
                 .map(subscription -> new EffectivePlan(workspace, subscription.getPlan(), subscription))
                 .orElseGet(() -> new EffectivePlan(workspace, getStarterPlan(), null));
+    }
+
+    @Override
+    public void requireCustomDomainAllowed(long userId) {
+        Plan plan = getEffectivePlan(userId).plan();
+
+        if (plan.isCustomDomainAllowed()) {
+            return;
+        }
+
+        Map<String, List<String>> errors = new LinkedHashMap<>();
+        errors.put("code", List.of("CUSTOM_DOMAIN_NOT_ALLOWED"));
+        errors.put("planCode", List.of(plan.getCode()));
+
+        throw new ApiException(
+                HttpStatus.FORBIDDEN,
+                CUSTOM_DOMAIN_NOT_ALLOWED_MESSAGE,
+                errors
+        );
     }
 
     private boolean isEffective(Subscription subscription, LocalDateTime now) {

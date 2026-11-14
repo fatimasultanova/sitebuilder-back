@@ -6,6 +6,7 @@ import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.security.RestAccessDeniedHandler;
 import az.baku.managesystemback.security.RestAuthenticationEntryPoint;
 import az.baku.managesystemback.service.DeploymentService;
+import az.baku.managesystemback.service.SiteDomainService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -31,6 +32,9 @@ class DeploymentControllerSecurityTest {
     private DeploymentService deploymentService;
 
     @MockitoBean
+    private SiteDomainService siteDomainService;
+
+    @MockitoBean
     private AuthSessionRepository authSessionRepository;
 
     @Test
@@ -52,6 +56,24 @@ class DeploymentControllerSecurityTest {
                 .andExpect(jsonPath("$.siteId").value("100"))
                 .andExpect(jsonPath("$.slug").value("my-site"))
                 .andExpect(jsonPath("$.snapshot.site.slug").value("my-site"));
+    }
+
+    @Test
+    void publicSiteByDomainIsAccessibleWithoutAuthentication() throws Exception {
+        PublicSiteResponse response = PublicSiteResponse.builder()
+                .siteId("100")
+                .slug("my-site")
+                .projectName("My Site")
+                .version(3)
+                .build();
+
+        when(siteDomainService.resolveConnectedSiteSlug("example.com")).thenReturn("my-site");
+        when(deploymentService.getPublicLiveSite("my-site")).thenReturn(response);
+
+        mockMvc.perform(get("/api/public/sites/by-domain").param("host", "example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.siteId").value("100"))
+                .andExpect(jsonPath("$.slug").value("my-site"));
     }
 
     @Test

@@ -2,11 +2,13 @@ package az.baku.managesystemback.controller;
 
 import az.baku.managesystemback.dto.response.PublicSiteResponse;
 import az.baku.managesystemback.service.DeploymentService;
+import az.baku.managesystemback.service.SiteDomainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -18,9 +20,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicSiteController {
 
     private final DeploymentService deploymentService;
+    private final SiteDomainService siteDomainService;
 
     @GetMapping("/{slug}")
     public ResponseEntity<PublicSiteResponse> getPublishedSite(@PathVariable String slug) {
+        return ResponseEntity.ok(deploymentService.getPublicLiveSite(slug));
+    }
+
+    @GetMapping("/by-domain")
+    public ResponseEntity<PublicSiteResponse> getPublishedSiteByDomain(
+            @RequestParam String host
+    ) {
+        String slug = siteDomainService.resolveConnectedSiteSlug(host);
         return ResponseEntity.ok(deploymentService.getPublicLiveSite(slug));
     }
 }

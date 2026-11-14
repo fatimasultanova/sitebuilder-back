@@ -11,6 +11,7 @@ import az.baku.managesystemback.repository.PaymentRepository;
 import az.baku.managesystemback.repository.PaymentSessionRepository;
 import az.baku.managesystemback.repository.PlanRepository;
 import az.baku.managesystemback.repository.SecurityEventRepository;
+import az.baku.managesystemback.repository.SiteDomainRepository;
 import az.baku.managesystemback.repository.SiteRepository;
 import az.baku.managesystemback.repository.SubscriptionRepository;
 import az.baku.managesystemback.repository.TemplateRepository;
@@ -51,6 +52,9 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private SiteRepository siteRepository;
+
+    @MockitoBean
+    private SiteDomainRepository siteDomainRepository;
 
     @MockitoBean
     private DeploymentRepository deploymentRepository;
