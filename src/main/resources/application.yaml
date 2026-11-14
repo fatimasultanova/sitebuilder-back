@@ -35,6 +35,7 @@ billing:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  published-url-template: ${PUBLISHED_URL_TEMPLATE:}
   mail:
     provider: ${MAIL_PROVIDER:brevo}
     brevo:

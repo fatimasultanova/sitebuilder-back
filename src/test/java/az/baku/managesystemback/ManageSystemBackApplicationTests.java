@@ -1,6 +1,7 @@
 package az.baku.managesystemback;
 
 import az.baku.managesystemback.repository.AuthSessionRepository;
+import az.baku.managesystemback.repository.DeploymentRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
 import az.baku.managesystemback.repository.InvoiceRepository;
 import az.baku.managesystemback.repository.NotificationPreferencesRepository;
@@ -50,6 +51,9 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private SiteRepository siteRepository;
+
+    @MockitoBean
+    private DeploymentRepository deploymentRepository;
 
     @MockitoBean
     private WorkspaceRepository workspaceRepository;

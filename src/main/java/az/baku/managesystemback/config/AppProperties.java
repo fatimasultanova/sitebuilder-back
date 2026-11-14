@@ -15,4 +15,6 @@ import org.springframework.stereotype.Component;
 public class AppProperties {
 
     private String frontendUrl = "https://manage-system-phi.vercel.app";
+
+    private String publishedUrlTemplate = "";
 }
