@@ -22,7 +22,7 @@ import java.util.List;
  * @author Fatima Sultanova
  */
 @RestController
-@RequestMapping("/api/deployments")
+@RequestMapping({"/api/deployments", "/deployments"})
 @RequiredArgsConstructor
 public class DeploymentController {
 

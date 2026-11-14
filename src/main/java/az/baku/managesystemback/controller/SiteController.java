@@ -28,7 +28,7 @@ import java.util.List;
  * @author Fatima Sultanova
  */
 @RestController
-@RequestMapping("/api/sites")
+@RequestMapping({"/api/sites", "/sites"})
 @RequiredArgsConstructor
 public class SiteController {
 
