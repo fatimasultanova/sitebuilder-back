@@ -1,6 +1,7 @@
 package az.baku.managesystemback.dto.response;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -15,6 +16,6 @@ public record CheckoutConfirmResponse(
         String cycle,
         String invoiceId,
         String invoiceNumber,
-        LocalDateTime currentPeriodEnd
+        Instant currentPeriodEnd
 ) {
 }

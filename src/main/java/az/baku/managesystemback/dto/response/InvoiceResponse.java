@@ -1,6 +1,7 @@
 package az.baku.managesystemback.dto.response;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -9,7 +10,7 @@ import java.time.LocalDateTime;
 public record InvoiceResponse(
         String id,
         String number,
-        LocalDateTime issuedAt,
+        Instant issuedAt,
         BigDecimal amount,
         String currency,
         String status,

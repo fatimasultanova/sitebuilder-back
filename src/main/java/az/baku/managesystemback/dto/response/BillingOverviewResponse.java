@@ -1,6 +1,7 @@
 package az.baku.managesystemback.dto.response;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -13,7 +14,7 @@ public record BillingOverviewResponse(
         String cycle,
         BigDecimal price,
         String currency,
-        LocalDateTime renewsAt,
+        Instant renewsAt,
         boolean cancelAtPeriodEnd,
         String paymentMethodId,
         int maxSites,

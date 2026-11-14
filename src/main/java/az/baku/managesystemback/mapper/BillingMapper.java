@@ -20,6 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+
 /**
  * @author Fatima Sultanova
  */
@@ -69,7 +72,7 @@ public final class BillingMapper {
                 toCycleLabel(cycle),
                 price,
                 plan.getCurrency(),
-                renewsAt,
+                renewsAt == null ? null : renewsAt.toInstant(ZoneOffset.UTC),
                 cancelAtPeriodEnd,
                 paymentMethodId,
                 plan.getMaxSites(),
@@ -92,7 +95,7 @@ public final class BillingMapper {
         return new InvoiceResponse(
                 String.valueOf(invoice.getId()),
                 invoice.getInvoiceNumber(),
-                invoice.getIssuedAt(),
+                invoice.getIssuedAt().toInstant(ZoneOffset.UTC),
                 invoice.getAmount(),
                 invoice.getCurrency(),
                 toInvoiceStatus(invoice.getStatus()),
@@ -124,7 +127,7 @@ public final class BillingMapper {
                 session.getAmount(),
                 session.getCurrency(),
                 session.getStatus().name().toLowerCase(Locale.ROOT),
-                session.getExpiresAt()
+                session.getExpiresAt().toInstant(ZoneOffset.UTC)
         );
     }
 
@@ -142,7 +145,7 @@ public final class BillingMapper {
                 toCycleLabel(session.getBillingCycle()),
                 invoice == null ? null : String.valueOf(invoice.getId()),
                 invoice == null ? null : invoice.getInvoiceNumber(),
-                currentPeriodEnd
+                currentPeriodEnd == null ? null : currentPeriodEnd.toInstant(ZoneOffset.UTC)
         );
     }
 

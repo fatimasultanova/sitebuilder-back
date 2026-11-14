@@ -1,6 +1,7 @@
 package az.baku.managesystemback.dto.response;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -14,6 +15,6 @@ public record CheckoutSessionDetailsResponse(
         BigDecimal amount,
         String currency,
         String status,
-        LocalDateTime expiresAt
+        Instant expiresAt
 ) {
 }
