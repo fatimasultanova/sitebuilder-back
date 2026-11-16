@@ -105,7 +105,7 @@ public class SiteServiceImpl implements SiteService {
     @Transactional
     public void deleteSite(long userId, long siteId) {
         Site site = findOwnedSite(userId, siteId);
-        activity.record(site, "site.updated", "Site deleted.");
+        activity.record(site, "site.deleted", "Site deleted.");
         siteRepository.delete(site);
     }
 
@@ -125,7 +125,7 @@ public class SiteServiceImpl implements SiteService {
                 .build();
 
         Site savedSite = siteRepository.save(copy);
-        activity.record(savedSite, "site.created", "Site duplicated.");
+        activity.record(savedSite, "site.duplicated", "Site duplicated.");
 
         return SiteMapper.toResponse(savedSite);
     }
