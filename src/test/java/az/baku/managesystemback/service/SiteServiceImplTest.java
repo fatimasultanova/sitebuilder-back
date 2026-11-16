@@ -27,6 +27,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SiteServiceImplTest {
+    @Test
+    void unfilteredListBindsAnEmptyStringInsteadOfUntypedNull() {
+        service.listSites(USER_ID, null, null);
+        org.mockito.Mockito.verify(siteRepository).findAllForOwner(USER_ID, null, "");
+    }
 
     private static final long USER_ID = 1L;
     private static final long WORKSPACE_ID = 10L;
@@ -47,7 +52,7 @@ class SiteServiceImplTest {
         templateRepository = mock(TemplateRepository.class);
         userRepository = mock(UserRepository.class);
         planLimitService = mock(PlanLimitService.class);
-        service = new SiteServiceImpl(siteRepository, templateRepository, userRepository, planLimitService);
+        service = new SiteServiceImpl(siteRepository, templateRepository, userRepository, planLimitService, mock(ActivityService.class));
 
         owner = User.builder()
                 .id(USER_ID)

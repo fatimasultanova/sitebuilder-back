@@ -98,7 +98,19 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Public snapshots contain no account data and are fetched without credentials.
+        // Custom visitor hosts must not gain CORS access to private account endpoints.
+        CorsConfiguration publicSites = new CorsConfiguration();
+        publicSites.setAllowedOrigins(List.of("*"));
+        publicSites.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicSites.setAllowedHeaders(List.of("Content-Type"));
+        publicSites.setAllowCredentials(false);
+        publicSites.setMaxAge(3600L);
+        source.registerCorsConfiguration("/api/public/sites/**", publicSites);
         source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/deployments/**", configuration);
+        source.registerCorsConfiguration("/activity", configuration);
+        source.registerCorsConfiguration("/usage/**", configuration);
         source.registerCorsConfiguration("/auth/**", configuration);
         source.registerCorsConfiguration("/billing/**", configuration);
         source.registerCorsConfiguration("/account/**", configuration);

@@ -43,6 +43,7 @@ public class SiteServiceImpl implements SiteService {
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final PlanLimitService planLimitService;
+    private final ActivityService activity;
 
     @Override
     @Transactional
@@ -59,13 +60,15 @@ public class SiteServiceImpl implements SiteService {
 
         Site site = SiteMapper.toEntity(request, owner, template);
         Site savedSite = siteRepository.save(site);
-
+        activity.record(savedSite, "site.created", "Site created.");
         return SiteMapper.toResponse(savedSite);
     }
 
     @Override
     public List<SiteSummaryResponse> listSites(long userId, SiteStatus status, String search) {
-        String normalizedSearch = search == null || search.isBlank() ? null : search.trim();
+        // Bind a String even for an unfiltered read; PostgreSQL cannot infer the
+        // type of the null parameter used inside lower/concat in older drivers.
+        String normalizedSearch = search == null ? "" : search.trim();
 
         return siteRepository.findAllForOwner(userId, status, normalizedSearch)
                 .stream()
@@ -94,7 +97,7 @@ public class SiteServiceImpl implements SiteService {
 
         SiteMapper.applyUpdate(site, request, template);
         Site savedSite = siteRepository.save(site);
-
+        activity.record(savedSite, "site.updated", "Site updated.");
         return SiteMapper.toResponse(savedSite);
     }
 
@@ -102,6 +105,7 @@ public class SiteServiceImpl implements SiteService {
     @Transactional
     public void deleteSite(long userId, long siteId) {
         Site site = findOwnedSite(userId, siteId);
+        activity.record(site, "site.updated", "Site deleted.");
         siteRepository.delete(site);
     }
 
@@ -121,6 +125,7 @@ public class SiteServiceImpl implements SiteService {
                 .build();
 
         Site savedSite = siteRepository.save(copy);
+        activity.record(savedSite, "site.created", "Site duplicated.");
 
         return SiteMapper.toResponse(savedSite);
     }

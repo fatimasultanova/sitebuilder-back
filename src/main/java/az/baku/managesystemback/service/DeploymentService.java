@@ -24,4 +24,6 @@ public interface DeploymentService {
     DeploymentResponse rollback(long userId, long deploymentId);
 
     PublicSiteResponse getPublicLiveSite(String slug);
+    java.util.Map<String, Object> getPublication(long userId, long siteId);
+    void unpublish(long userId, long siteId);
 }

@@ -63,7 +63,8 @@ class SiteDomainServiceImplTest {
                 planLimitService,
                 dnsResolver,
                 sslProvisioner,
-                domainProperties
+                domainProperties,
+                mock(ActivityService.class)
         );
 
         User owner = User.builder()
@@ -332,5 +333,43 @@ class SiteDomainServiceImplTest {
                 .status(SiteDomainStatus.PENDING)
                 .sslStatus(SiteDomainSslStatus.PENDING)
                 .build();
+    }
+
+    @Test
+    void multiLabelPublicSuffixGetsApexRecords() {
+        var response = service.registerDomain(USER_ID, SITE_ID, new RegisterDomainRequest("example.co.uk"));
+        assertThat(response.getRecords()).extracting(DnsRecordResponse::getType).containsExactly("TXT", "A", "A");
+        var subdomain = service.registerDomain(USER_ID, SITE_ID, new RegisterDomainRequest("www.example.co.uk"));
+        assertThat(subdomain.getRecords()).extracting(DnsRecordResponse::getType).containsExactly("TXT", "CNAME");
+        assertThrows(ApiException.class, () -> service.registerDomain(USER_ID, SITE_ID, new RegisterDomainRequest("co.uk")));
+    }
+
+    @Test
+    void repeatedPutPreservesVerificationTokenAndCertificateState() {
+        var domain = pendingDomain();
+        domain.setStatus(SiteDomainStatus.CONNECTED);
+        domain.setSslStatus(SiteDomainSslStatus.ACTIVE);
+        when(siteDomainRepository.findByHostname("example.com")).thenReturn(Optional.of(domain));
+        var response = service.registerDomain(USER_ID, SITE_ID, new RegisterDomainRequest("EXAMPLE.COM"));
+        assertThat(domain.getVerificationToken()).isEqualTo("token-123");
+        assertThat(response.getStatus()).isEqualTo("connected");
+        assertThat(response.getSsl()).isEqualTo("active");
+        verify(siteDomainRepository, never()).save(any());
+    }
+
+    @Test
+    void failedReverificationClearsStaleVerificationButResolverOutageDoesNot() {
+        var domain = pendingDomain();
+        domain.setStatus(SiteDomainStatus.CONNECTED);
+        domain.setVerifiedAt(java.time.LocalDateTime.now());
+        domain.setSslStatus(SiteDomainSslStatus.ACTIVE);
+        when(siteDomainRepository.findBySiteId(SITE_ID)).thenReturn(Optional.of(domain));
+        when(dnsResolver.lookupTxt(anyString())).thenThrow(new DnsLookupException("timeout"));
+        assertThat(service.verifyDomain(USER_ID, SITE_ID).getStatus()).isEqualTo("connected");
+        org.mockito.Mockito.doReturn(List.of()).when(dnsResolver).lookupTxt(anyString());
+        var response = service.verifyDomain(USER_ID, SITE_ID);
+        assertThat(response.getStatus()).isEqualTo("pending");
+        assertThat(response.getVerifiedAt()).isNull();
+        assertThat(response.getSsl()).isEqualTo("pending");
     }
 }

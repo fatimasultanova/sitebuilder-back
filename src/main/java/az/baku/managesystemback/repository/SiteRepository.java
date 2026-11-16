@@ -14,14 +14,16 @@ import java.util.Optional;
  * @author Fatima Sultanova
  */
 public interface SiteRepository extends JpaRepository<Site, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Site s where s.id = :id")
+    Optional<Site> lockForPublication(@Param("id") long id);
 
     @EntityGraph(attributePaths = "template")
     @Query("""
             select s from Site s
             where s.owner.id = :ownerId
               and (:status is null or s.status = :status)
-              and (:search is null
-                   or lower(s.projectName) like lower(concat('%', :search, '%'))
+               and (lower(s.projectName) like lower(concat('%', :search, '%'))
                    or lower(s.slug) like lower(concat('%', :search, '%')))
             order by s.createdAt desc
             """)
