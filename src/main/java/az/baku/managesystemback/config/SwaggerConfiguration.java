@@ -26,7 +26,7 @@ public class SwaggerConfiguration {
                         new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
-                                .bearerFormat("JWT")));
+                                .bearerFormat("opaque session token")));
     }
 
     private Info apiInfo() {

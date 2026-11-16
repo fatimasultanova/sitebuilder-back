@@ -1,14 +1,3 @@
 package az.baku.managesystemback.repository;
-
-import az.baku.managesystemback.entity.Workspace;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.Optional;
-
-/**
- * @author Fatima Sultanova
- */
-public interface WorkspaceRepository extends JpaRepository<Workspace, Long> {
-
-    Optional<Workspace> findFirstByOwnerIdOrderByIdAsc(long ownerId);
-}
+import az.baku.managesystemback.entity.Workspace; import org.springframework.data.domain.Page; import org.springframework.data.domain.Pageable; import org.springframework.data.jpa.repository.JpaRepository; import org.springframework.data.jpa.repository.Query; import org.springframework.data.repository.query.Param; import java.util.Optional;
+public interface WorkspaceRepository extends JpaRepository<Workspace,Long>{ Optional<Workspace> findFirstByOwnerIdOrderByIdAsc(long ownerId); Optional<Workspace> findByIdAndOwnerId(long id,long ownerId); @Query("select distinct w from Workspace w left join w.members m where w.id=:wid and (w.owner.id=:uid or (m.user.id=:uid and m.status='ACTIVE'))") Optional<Workspace> findVisibleByIdAndUser(@Param("wid") long wid,@Param("uid") long uid); @Query(value="select distinct w from Workspace w left join w.members m where w.owner.id=:uid or (m.user.id=:uid and m.status='ACTIVE')",countQuery="select count(distinct w) from Workspace w left join w.members m where w.owner.id=:uid or (m.user.id=:uid and m.status='ACTIVE')") Page<Workspace> findVisibleToUser(@Param("uid") long uid,Pageable p); }

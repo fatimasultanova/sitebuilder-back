@@ -71,3 +71,56 @@ FRONTEND_BASE_URL='https://your-frontend.example' \
 Emails are published as events and sent asynchronously only after the database
 transaction commits. A rollback never sends an email, and a Brevo failure never
 fails or slows the register/resend/forgot-password HTTP response.
+
+## Backend 1 account and workspace API
+
+All routes below use the `/api` prefix and require `Authorization: Bearer <session-token>` except auth register/login/recovery/verification and OAuth start/callback. List endpoints use zero-based `page` and `size` parameters (default 20, maximum 100) and return Spring `Page` metadata.
+
+### Authentication
+
+- `POST /api/auth/register` (201), `/login` (200), `/logout` (204)
+- `POST /api/auth/forgot-password`, `/reset-password` (204), `/resend-verification`, `/verify-email`
+- `POST /api/auth/oauth/google/start` with `{ "intent": "login", "returnTo": "/sites" }` returns `authorizationUrl`; callback accepts `{ "code": "...", "state": "..." }` and returns the regular session response.
+- Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` to enable Google sign-in. Google email must be verified. OAuth state expires after ten minutes and is single use. The configured Google callback URI must exactly match the Google Cloud Console redirect URI.
+- Sessions are opaque random bearer credentials stored as SHA-256 hashes in `auth_sessions`; logout revokes the presented session. This is not a JWT implementation.
+
+### Profile
+
+- `GET /api/profile`, `PATCH /api/profile` (`{ "name": "...", "surname": "..." }`)
+- `POST /api/profile/avatar` multipart field `avatar`; accepts JPEG, PNG, or WebP, maximum 2 MB.
+- `DELETE /api/profile/avatar` (204)
+
+Avatar content is currently stored as a data URL in `users.avatar_url`. Replace this with an object-storage reference before production use at scale.
+
+### Workspaces and members
+
+- `GET /api/workspaces?page=0&size=20`, `GET /api/workspaces/{id}`, `POST /api/workspaces`, `PUT /api/workspaces/{id}`, `DELETE /api/workspaces/{id}`
+- `GET /api/workspaces/{id}/members?page=0&size=20`
+- `POST /api/workspaces/{id}/members/invitations` with `{ "email": "person@example.com", "role": "MEMBER" }`
+- `POST /api/workspaces/{id}/members/{memberId}/resend-invitation`
+- `POST /api/workspaces/invitations/accept` with `{ "token": "..." }`
+- `PATCH /api/workspaces/{id}/members/{memberId}` with `{ "role": "EDITOR" }`; `DELETE` the same path to remove.
+
+Roles accepted for invite/change: `ADMIN`, `EDITOR`, `MEMBER`, `VIEWER`. Only the workspace owner can manage workspace settings and members. Invited users must already have accounts. Invitation tokens expire after seven days.
+
+### Notifications
+
+- `GET /api/notifications?page=0&size=20&unread=true`
+- `GET /api/notifications/unread-count` → `{ "count": 0 }`
+- `PATCH /api/notifications/{id}/read`, `POST /api/notifications/read-all`
+- `GET` and `PATCH /api/notifications/preferences` with optional boolean fields `inApp`, `email`, `securityAlerts`, `websiteUpdates`, `billingUpdates`.
+
+Notification storage is available; this module does not yet create delivery events for other product domains. Email preference records intent and does not itself send notification email.
+
+### User support
+
+- `POST /api/support/requests` with `subject`, `category`, and `message` (201)
+- `GET /api/support/requests?page=0&size=20`
+- `GET /api/support/requests/{id}`
+
+Ticket lists/details are restricted to the authenticated requester. Admin ticket operations remain outside this API.
+
+### Database update
+
+`src/main/resources/db/migration/V1__backend1_account_modules.sql` contains additive PostgreSQL DDL for the new tables and account columns. The existing project uses Hibernate `ddl-auto: update`; the SQL file is provided for controlled/manual deployment and is not automatically executed by Flyway. Review/apply it through the project's database release process before deploying the code.
+

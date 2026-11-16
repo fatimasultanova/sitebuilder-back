@@ -45,3 +45,7 @@ app:
     from-email: "${AUTH_EMAIL_FROM:Site Builder <no-reply@sitebuilder.local>}"
     email-locale: ${AUTH_EMAIL_LOCALE:az}
     resend-cooldown: ${AUTH_RESEND_COOLDOWN:60s}
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:3000/auth/callback}

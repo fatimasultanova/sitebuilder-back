@@ -46,6 +46,12 @@ public class User {
     @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
     private boolean emailVerified = false;
 
+    @Column(name = "avatar_url", columnDefinition = "text")
+    private String avatarUrl;
+
+    @Column(name = "google_subject", unique = true)
+    private String googleSubject;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

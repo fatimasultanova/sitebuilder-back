@@ -22,6 +22,10 @@ public class Workspace {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @OneToMany(mappedBy = "workspace")
+    @Builder.Default
+    private java.util.List<WorkspaceMember> members = new java.util.ArrayList<>();
+
     @Column(nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

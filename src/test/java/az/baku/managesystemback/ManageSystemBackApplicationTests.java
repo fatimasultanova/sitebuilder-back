@@ -17,6 +17,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
+import az.baku.managesystemback.repository.NotificationPreferenceRepository;
+import az.baku.managesystemback.repository.NotificationRepository;
+import az.baku.managesystemback.repository.OAuthStateRepository;
+import az.baku.managesystemback.repository.SupportTicketRepository;
+import az.baku.managesystemback.repository.WorkspaceMemberRepository;
 
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude="
@@ -48,6 +53,21 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private TemplateRepository templateRepository;
+
+    @MockitoBean
+    private NotificationRepository notificationRepository;
+
+    @MockitoBean
+    private NotificationPreferenceRepository notificationPreferenceRepository;
+
+    @MockitoBean
+    private SupportTicketRepository supportTicketRepository;
+
+    @MockitoBean
+    private WorkspaceMemberRepository workspaceMemberRepository;
+
+    @MockitoBean
+    private OAuthStateRepository oauthStateRepository;
 
     @Test
     void contextLoads() {

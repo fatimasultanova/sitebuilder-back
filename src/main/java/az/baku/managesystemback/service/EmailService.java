@@ -3,6 +3,7 @@ package az.baku.managesystemback.service;
 import az.baku.managesystemback.entity.User;
 import az.baku.managesystemback.event.PasswordResetEmailRequested;
 import az.baku.managesystemback.event.VerificationEmailRequested;
+import az.baku.managesystemback.event.WorkspaceInvitationRequested;
 import az.baku.managesystemback.mail.EmailContentBuilder;
 import az.baku.managesystemback.mail.EmailMasker;
 import az.baku.managesystemback.mail.EmailMessage;
@@ -78,6 +79,20 @@ public class EmailService {
         }
     }
 
+    @Async("mailTaskExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onWorkspaceInvitationRequested(WorkspaceInvitationRequested event) {
+        try {
+            String link = event.rawToken();
+            String workspaceName = org.springframework.web.util.HtmlUtils.htmlEscape(event.workspaceName());
+            emailSender.send(new EmailMessage(event.email(), event.email(), "Workspace invitation: " + workspaceName,
+                    "<p>You have been invited to " + workspaceName + ".</p><p>Invitation token: <code>" + link + "</code></p>",
+                    "You have been invited to " + event.workspaceName() + ". Invitation token: " + link));
+        } catch (RuntimeException ex) {
+            log.error("Failed to send workspace invitation to {}: {}.", EmailMasker.mask(event.email()), ex.getClass().getSimpleName());
+        }
+    }
+
     private String displayName(User user) {
         if (user.getSurname() == null || user.getSurname().isBlank()) {
             return user.getName();
@@ -85,3 +100,4 @@ public class EmailService {
         return user.getName() + " " + user.getSurname();
     }
 }
+
