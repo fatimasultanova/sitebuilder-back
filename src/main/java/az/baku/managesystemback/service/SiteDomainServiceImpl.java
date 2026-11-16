@@ -65,6 +65,7 @@ public class SiteDomainServiceImpl implements SiteDomainService {
     private final DnsResolver dnsResolver;
     private final SslProvisioner sslProvisioner;
     private final DomainProperties domainProperties;
+    private final ActivityService activity;
 
     @Override
     public SiteDomainResponse getDomain(long userId, long siteId) {
@@ -94,6 +95,10 @@ public class SiteDomainServiceImpl implements SiteDomainService {
                 .or(() -> siteDomainRepository.findBySiteId(siteId))
                 .orElseGet(() -> SiteDomain.builder().site(site).build());
 
+        if (hostname.equals(domain.getHostname())) {
+            return toResponse(domain); // Retrying PUT must not invalidate an existing TXT token.
+        }
+
         domain.setHostname(hostname);
         domain.setVerificationToken(TokenUtils.generateToken());
         domain.setStatus(SiteDomainStatus.PENDING);
@@ -101,6 +106,7 @@ public class SiteDomainServiceImpl implements SiteDomainService {
         domain.setVerifiedAt(null);
         domain.setLastCheckedAt(null);
         domain.setErrorMessage(null);
+        activity.record(site, "domain.changed", "Domain attached.");
 
         return toResponse(siteDomainRepository.save(domain));
     }
@@ -117,6 +123,7 @@ public class SiteDomainServiceImpl implements SiteDomainService {
                 ));
 
         LocalDateTime checkedAt = LocalDateTime.now();
+        SiteDomainStatus previousStatus = domain.getStatus();
         domain.setLastCheckedAt(checkedAt);
 
         String expectedValue = VERIFICATION_VALUE_PREFIX + domain.getVerificationToken();
@@ -135,15 +142,21 @@ public class SiteDomainServiceImpl implements SiteDomainService {
                 provisionSsl(domain);
             } else {
                 domain.setStatus(SiteDomainStatus.PENDING);
+                domain.setVerifiedAt(null);
+                domain.setSslStatus(SiteDomainSslStatus.PENDING);
                 domain.setErrorMessage(VERIFICATION_PENDING_MESSAGE);
             }
         } catch (DnsLookupException ex) {
-            domain.setStatus(SiteDomainStatus.PENDING);
+            // A temporary resolver outage does not revoke previously proven ownership.
             domain.setErrorMessage(DNS_LOOKUP_FAILED_MESSAGE);
             log.warn("DNS lookup failed while verifying hostname {}: {}",
                     domain.getHostname(), ex.getMessage());
         }
 
+        if (domain.getStatus() != previousStatus) {
+            activity.record(domain.getSite(), "domain.changed",
+                    "Domain verification: " + domain.getStatus().name().toLowerCase(Locale.ROOT) + ".");
+        }
         return toResponse(siteDomainRepository.save(domain));
     }
 
@@ -152,7 +165,10 @@ public class SiteDomainServiceImpl implements SiteDomainService {
     public void deleteDomain(long userId, long siteId) {
         findOwnedSite(userId, siteId);
         siteDomainRepository.findBySiteId(siteId)
-                .ifPresent(siteDomainRepository::delete);
+                .ifPresent(domain -> {
+                    activity.record(domain.getSite(), "domain.changed", "Domain removed.");
+                    siteDomainRepository.delete(domain);
+                });
     }
 
     @Override
@@ -219,6 +235,10 @@ public class SiteDomainServiceImpl implements SiteDomainService {
             }
         }
 
+        if (!com.google.common.net.InternetDomainName.isValid(hostname)
+                || com.google.common.net.InternetDomainName.from(hostname).isPublicSuffix()) {
+            throw invalidHostname();
+        }
         enforcePlatformDomain(hostname);
 
         return hostname;
@@ -287,7 +307,9 @@ public class SiteDomainServiceImpl implements SiteDomainService {
     }
 
     private boolean isApex(String hostname) {
-        return hostname.chars().filter(character -> character == '.').count() == 1;
+        var name = com.google.common.net.InternetDomainName.from(hostname);
+        return name.hasPublicSuffix() ? name.isTopPrivateDomain()
+                : hostname.chars().filter(character -> character == '.').count() == 1;
     }
 
     private void provisionSsl(SiteDomain domain) {

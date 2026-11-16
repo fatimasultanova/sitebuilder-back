@@ -50,10 +50,13 @@ class DeploymentPipelineTest {
                 deploymentRepository,
                 siteRepository,
                 appProperties,
-                noOpTransactionManager()
+                noOpTransactionManager(),
+                mock(ActivityService.class)
         );
 
         owner = User.builder().id(1L).email("test@example.com").build();
+        when(deploymentRepository.findStatusById(DEPLOYMENT_ID))
+                .thenReturn(Optional.of(DeploymentStatus.BUILDING));
         Template template = Template.builder()
                 .id(20L)
                 .slug("saas-starter")
@@ -70,7 +73,7 @@ class DeploymentPipelineTest {
                 .projectName("My Site")
                 .slug("my-site")
                 .status(SiteStatus.DRAFT)
-                .content(Map.of("blocks", List.of()))
+                .content(Map.of("pages", List.of(Map.of("id", "home", "isHome", true, "sections", List.of()))))
                 .build();
     }
 
@@ -148,6 +151,33 @@ class DeploymentPipelineTest {
 
         assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.STOPPED);
         assertThat(deployment.getStartedAt()).isNull();
+    }
+
+    @Test
+    void unpublishedBuildDoesNotBecomeLiveAfterWaitingForTheSiteLock() {
+        Deployment deployment = queuedDeployment();
+        Deployment previousLive = Deployment.builder()
+                .id(400L)
+                .site(site)
+                .owner(owner)
+                .version(1)
+                .status(DeploymentStatus.LIVE)
+                .build();
+
+        when(deploymentRepository.findById(DEPLOYMENT_ID)).thenReturn(Optional.of(deployment));
+        when(deploymentRepository.findWithSiteAndTemplateById(DEPLOYMENT_ID))
+                .thenReturn(Optional.of(deployment));
+        when(deploymentRepository.findStatusById(DEPLOYMENT_ID))
+                .thenReturn(Optional.of(DeploymentStatus.STOPPED));
+        when(deploymentRepository.save(any(Deployment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        pipeline.process(DEPLOYMENT_ID);
+
+        assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.STOPPED);
+        assertThat(previousLive.getStatus()).isEqualTo(DeploymentStatus.LIVE);
+        assertThat(deployment.getPublishedUrl()).isNull();
+        assertThat(site.getStatus()).isEqualTo(SiteStatus.DRAFT);
     }
 
     private Deployment queuedDeployment() {

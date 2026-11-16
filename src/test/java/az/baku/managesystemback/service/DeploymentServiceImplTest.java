@@ -62,7 +62,8 @@ class DeploymentServiceImplTest {
                 deploymentRepository,
                 siteRepository,
                 appProperties,
-                eventPublisher
+                eventPublisher,
+                mock(ActivityService.class)
         );
 
         owner = User.builder()
@@ -345,5 +346,38 @@ class DeploymentServiceImplTest {
                 .version(5)
                 .status(status)
                 .build();
+    }
+
+    @Test
+    void unpublishRetiresLiveAndCancelsPendingBuilds() {
+        var live = deployment(DeploymentStatus.LIVE);
+        var queued = deployment(DeploymentStatus.QUEUED);
+        when(siteRepository.findByIdAndOwnerId(SITE_ID, USER_ID)).thenReturn(Optional.of(site));
+        when(deploymentRepository.findBySiteIdAndStatusIn(anyLong(), anyCollection())).thenReturn(List.of(live, queued));
+        service.unpublish(USER_ID, SITE_ID);
+        assertThat(live.getStatus()).isEqualTo(DeploymentStatus.SUPERSEDED);
+        assertThat(queued.getStatus()).isEqualTo(DeploymentStatus.STOPPED);
+        assertThat(queued.getFinishedAt()).isNotNull();
+        assertThat(site.getStatus()).isEqualTo(SiteStatus.DRAFT);
+        verify(siteRepository).lockForPublication(SITE_ID);
+    }
+
+    @Test
+    void publicationOfAnotherOwnersSiteIsNotAccessible() {
+        when(siteRepository.findByIdAndOwnerId(SITE_ID, USER_ID)).thenReturn(Optional.empty());
+        assertThat(assertThrows(ApiException.class, () -> service.getPublication(USER_ID, SITE_ID)).getStatus())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThrows(ApiException.class, () -> service.unpublish(USER_ID, SITE_ID));
+        verifyNoInteractions(deploymentRepository);
+    }
+
+    @Test
+    void rollbackCannotCompeteWithAnInFlightBuild() {
+        when(deploymentRepository.findByIdAndOwnerId(DEPLOYMENT_ID, USER_ID))
+                .thenReturn(Optional.of(deployment(DeploymentStatus.SUPERSEDED)));
+        when(deploymentRepository.existsBySiteIdAndStatusIn(anyLong(), anyCollection())).thenReturn(true);
+        assertThat(assertThrows(ApiException.class, () -> service.rollback(USER_ID, DEPLOYMENT_ID)).getStatus())
+                .isEqualTo(HttpStatus.CONFLICT);
+        verify(deploymentRepository, never()).save(any());
     }
 }

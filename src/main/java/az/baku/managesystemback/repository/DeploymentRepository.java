@@ -17,6 +17,7 @@ import java.util.Optional;
  * @author Fatima Sultanova
  */
 public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
+    long countByOwnerId(long ownerId);
 
     @EntityGraph(attributePaths = {"site", "site.template"})
     @Query("""
@@ -47,6 +48,10 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     int findMaxVersionBySiteId(@Param("siteId") long siteId);
 
     List<Deployment> findBySiteIdAndStatus(long siteId, DeploymentStatus status);
+    List<Deployment> findBySiteIdAndStatusIn(long siteId, Collection<DeploymentStatus> statuses);
+
+    @Query("select d.status from Deployment d where d.id = :id")
+    Optional<DeploymentStatus> findStatusById(@Param("id") long id);
 
     @Query("""
             select d from Deployment d

@@ -47,6 +47,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     private final SiteRepository siteRepository;
     private final AppProperties appProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final ActivityService activity;
 
     @Override
     public List<DeploymentResponse> listDeployments(long userId, Long siteId, String status) {
@@ -106,6 +107,7 @@ public class DeploymentServiceImpl implements DeploymentService {
         deployment.setStatus(DeploymentStatus.STOPPED);
         deployment.setFinishedAt(Instant.now());
         deployment.setLogMessage("Deployment stopped by user.");
+        activity.record(deployment.getSite(), "deployment.changed", "Deployment stopped.");
 
         return DeploymentMapper.toResponse(deploymentRepository.save(deployment));
     }
@@ -120,6 +122,11 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
 
         Site site = target.getSite();
+        siteRepository.lockForPublication(site.getId());
+        if (deploymentRepository.existsBySiteIdAndStatusIn(site.getId(),
+                List.of(DeploymentStatus.QUEUED, DeploymentStatus.BUILDING))) {
+            throw new ApiException(HttpStatus.CONFLICT, IN_PROGRESS_MESSAGE);
+        }
         List<Deployment> currentLive = new ArrayList<>(deploymentRepository
                 .findBySiteIdAndStatus(site.getId(), DeploymentStatus.LIVE));
 
@@ -140,6 +147,7 @@ public class DeploymentServiceImpl implements DeploymentService {
 
         site.setStatus(SiteStatus.PUBLISHED);
         siteRepository.save(site);
+        activity.record(site, "deployment.changed", "Rolled back to version " + target.getVersion() + ".");
 
         return DeploymentMapper.toResponse(deploymentRepository.save(target));
     }
@@ -160,6 +168,7 @@ public class DeploymentServiceImpl implements DeploymentService {
     }
 
     private DeploymentResponse enqueue(Site site, Integer requestedVersion) {
+        siteRepository.lockForPublication(site.getId());
         if (deploymentRepository.existsBySiteIdAndStatusIn(
                 site.getId(),
                 List.of(DeploymentStatus.QUEUED, DeploymentStatus.BUILDING)
@@ -179,6 +188,7 @@ public class DeploymentServiceImpl implements DeploymentService {
                 .build();
 
         Deployment saved = deploymentRepository.save(deployment);
+        activity.record(site, "deployment.changed", "Deployment queued.");
         eventPublisher.publishEvent(new DeploymentRequestedEvent(saved.getId()));
 
         return DeploymentMapper.toResponse(saved);
@@ -212,6 +222,38 @@ public class DeploymentServiceImpl implements DeploymentService {
         }
 
         return requestedVersion;
+    }
+
+    @Override
+    public Map<String, Object> getPublication(long userId, long siteId) {
+        findOwnedSite(userId, siteId);
+        List<Deployment> live = deploymentRepository.findBySiteIdAndStatus(siteId, DeploymentStatus.LIVE);
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("available", true);
+        result.put("status", live.isEmpty() ? "unpublished" : "published");
+        result.put("publishedUrl", live.isEmpty() ? null : live.get(0).getPublishedUrl());
+        result.put("pending", deploymentRepository.existsBySiteIdAndStatusIn(siteId,
+                List.of(DeploymentStatus.QUEUED, DeploymentStatus.BUILDING)));
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void unpublish(long userId, long siteId) {
+        Site site = findOwnedSite(userId, siteId);
+        siteRepository.lockForPublication(siteId);
+        var active = deploymentRepository.findBySiteIdAndStatusIn(siteId,
+                List.of(DeploymentStatus.LIVE, DeploymentStatus.QUEUED, DeploymentStatus.BUILDING));
+        for (Deployment deployment : active) {
+            deployment.setStatus(deployment.getStatus() == DeploymentStatus.LIVE
+                    ? DeploymentStatus.SUPERSEDED : DeploymentStatus.STOPPED);
+            deployment.setFinishedAt(Instant.now());
+            deployment.setLogMessage("Site unpublished by user.");
+        }
+        deploymentRepository.saveAll(active);
+        site.setStatus(SiteStatus.DRAFT);
+        siteRepository.save(site);
+        if (!active.isEmpty()) activity.record(site, "deployment.changed", "Site unpublished.");
     }
 
     private DeploymentStatus parseStatus(String status) {

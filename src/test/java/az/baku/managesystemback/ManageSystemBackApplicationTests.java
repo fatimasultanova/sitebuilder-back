@@ -37,6 +37,8 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 })
 @Import(ManageSystemBackApplicationTests.TestTransactionConfiguration.class)
 class ManageSystemBackApplicationTests {
+    @MockitoBean
+    private az.baku.managesystemback.repository.ActivityEventRepository activityEventRepository;
 
     @MockitoBean
     private UserRepository userRepository;

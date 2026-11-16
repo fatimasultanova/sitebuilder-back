@@ -38,6 +38,7 @@ public class DeploymentPipeline {
     private final SiteRepository siteRepository;
     private final AppProperties appProperties;
     private final PlatformTransactionManager transactionManager;
+    private final ActivityService activity;
 
     public void process(long deploymentId) {
         Boolean started;
@@ -94,6 +95,16 @@ public class DeploymentPipeline {
         }
 
         Site site = deployment.getSite();
+        siteRepository.lockForPublication(site.getId());
+
+        // An unpublish may have committed while this build waited for the site lock.
+        // Read the row's current status instead of trusting the pre-lock snapshot.
+        DeploymentStatus currentStatus = deploymentRepository.findStatusById(deploymentId).orElse(null);
+        if (currentStatus != DeploymentStatus.BUILDING) {
+            deployment.setStatus(currentStatus);
+            return;
+        }
+
         validateSite(site);
 
         deployment.setSnapshot(buildSnapshot(site));
@@ -119,6 +130,7 @@ public class DeploymentPipeline {
         site.setStatus(SiteStatus.PUBLISHED);
         siteRepository.save(site);
         deploymentRepository.save(deployment);
+        activity.recordSystem(site, "site.published", "Version " + deployment.getVersion() + " published.");
     }
 
     private void markFailed(long deploymentId, String message) {
@@ -132,6 +144,7 @@ public class DeploymentPipeline {
         deployment.setFinishedAt(Instant.now());
         deployment.setLogMessage(message);
         deploymentRepository.save(deployment);
+        activity.recordSystem(deployment.getSite(), "deployment.changed", "Deployment failed.");
         log.warn("Deployment {} marked as FAILED: {}", deploymentId, message);
     }
 
@@ -139,7 +152,9 @@ public class DeploymentPipeline {
         if (site == null
                 || site.getSlug() == null || site.getSlug().isBlank()
                 || site.getProjectName() == null || site.getProjectName().isBlank()
-                || site.getContent() == null) {
+                || site.getContent() == null
+                || !(site.getContent().get("pages") instanceof List<?> pages)
+                || pages.isEmpty()) {
             throw new IllegalStateException(INVALID_SITE_MESSAGE);
         }
     }
