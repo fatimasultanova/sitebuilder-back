@@ -7,7 +7,7 @@ import az.baku.managesystemback.dto.response.SiteSummaryResponse;
 import az.baku.managesystemback.entity.Site;
 import az.baku.managesystemback.entity.SiteStatus;
 import az.baku.managesystemback.entity.Template;
-import az.baku.managesystemback.entity.Workspace;
+import az.baku.managesystemback.entity.User;
 
 import java.util.Locale;
 
@@ -21,29 +21,26 @@ public final class SiteMapper {
 
     public static Site toEntity(
             CreateSiteRequest request,
-            Workspace workspace,
+            User owner,
             Template template
     ) {
         return Site.builder()
-                .workspace(workspace)
+                .owner(owner)
                 .template(template)
-                .title(request.getProjectName().trim())
+                .projectName(request.getProjectName().trim())
                 .slug(normalizeSlug(request.getSlug()))
-                .contentJson(request.getContent())
-                .status(request.getStatus() == null ? SiteStatus.DRAFT : request.getStatus())
+                .content(request.getContent())
+                .status(SiteStatus.DRAFT)
                 .build();
     }
 
     public static void applyUpdate(Site site, UpdateSiteRequest request, Template template) {
-        site.setTitle(request.getProjectName().trim());
+        site.setProjectName(request.getProjectName().trim());
         site.setSlug(normalizeSlug(request.getSlug()));
-        site.setContentJson(request.getContent());
+        site.setContent(request.getContent());
 
         if (template != null) {
             site.setTemplate(template);
-        }
-        if (request.getStatus() != null) {
-            site.setStatus(request.getStatus());
         }
     }
 
@@ -52,10 +49,10 @@ public final class SiteMapper {
                 .id(site.getId())
                 .templateId(templateId(site))
                 .templateName(templateName(site))
-                .projectName(site.getTitle())
+                .projectName(site.getProjectName())
                 .slug(site.getSlug())
                 .status(site.getStatus())
-                .content(site.getContentJson())
+                .content(site.getContent())
                 .createdAt(site.getCreatedAt())
                 .updatedAt(site.getUpdatedAt())
                 .build();
@@ -66,7 +63,7 @@ public final class SiteMapper {
                 .id(site.getId())
                 .templateId(templateId(site))
                 .templateName(templateName(site))
-                .projectName(site.getTitle())
+                .projectName(site.getProjectName())
                 .slug(site.getSlug())
                 .status(site.getStatus())
                 .createdAt(site.getCreatedAt())

@@ -58,9 +58,11 @@ class AccountSecurityControllerSecurityTest {
     private AuthService authService;
 
     @MockitoBean
+
     private GoogleOAuthService googleOAuthService;
 
     @MockitoBean
+
     private AuthSessionRepository authSessionRepository;
 
     @Test

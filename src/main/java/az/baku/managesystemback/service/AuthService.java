@@ -66,6 +66,7 @@ public class AuthService {
     private final AuthProperties authProperties;
     private final SecurityEventService securityEventService;
 
+
     @Transactional
     public LoginResponse loginWithGoogle(String email, String name, String googleSubject) {
         return loginWithGoogle("login", email, name, googleSubject, null, "Google OAuth");
@@ -258,6 +259,7 @@ public class AuthService {
         );
         return new LoginResponse(session.rawToken(), UserResponse.from(user));
     }
+
 
     @Transactional
     public String register(RegisterRequest request) {

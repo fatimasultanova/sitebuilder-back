@@ -6,10 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-/**
- * @author Fatima Sultanova
- */
-
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,6 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 @Table(schema = "sitebuilder-data", name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
@@ -33,14 +30,15 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    // Sistem daxilində ümumi rol (Məsələn: ROLE_USER, ROLE_ADMIN)
+    // Global system role, for example: ROLE_USER or ROLE_ADMIN
     @Builder.Default
     @Column(nullable = false)
     private String role = "ROLE_USER";
 
+    // Indicates whether the account is active
     @Builder.Default
     @Column(nullable = false)
-    private boolean enabled = true; // Hesab aktivdir ya yox
+    private boolean enabled = true;
 
     @Builder.Default
     @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")

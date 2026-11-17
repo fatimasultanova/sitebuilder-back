@@ -1,9 +1,19 @@
 package az.baku.managesystemback;
 
 import az.baku.managesystemback.repository.AuthSessionRepository;
+import az.baku.managesystemback.repository.DeploymentRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
+import az.baku.managesystemback.repository.InvoiceRepository;
+import az.baku.managesystemback.repository.NotificationPreferencesRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
+import az.baku.managesystemback.repository.PaymentMethodRepository;
+import az.baku.managesystemback.repository.PaymentRepository;
+import az.baku.managesystemback.repository.PaymentSessionRepository;
+import az.baku.managesystemback.repository.PlanRepository;
+import az.baku.managesystemback.repository.SecurityEventRepository;
+import az.baku.managesystemback.repository.SiteDomainRepository;
 import az.baku.managesystemback.repository.SiteRepository;
+import az.baku.managesystemback.repository.SubscriptionRepository;
 import az.baku.managesystemback.repository.TemplateRepository;
 import az.baku.managesystemback.repository.UserRepository;
 import az.baku.managesystemback.repository.WorkspaceRepository;
@@ -34,6 +44,8 @@ import az.baku.managesystemback.repository.SecurityEventRepository;
 })
 @Import(ManageSystemBackApplicationTests.TestTransactionConfiguration.class)
 class ManageSystemBackApplicationTests {
+    @MockitoBean
+    private az.baku.managesystemback.repository.ActivityEventRepository activityEventRepository;
 
     @MockitoBean
     private UserRepository userRepository;
@@ -54,6 +66,12 @@ class ManageSystemBackApplicationTests {
     private SiteRepository siteRepository;
 
     @MockitoBean
+    private SiteDomainRepository siteDomainRepository;
+
+    @MockitoBean
+    private DeploymentRepository deploymentRepository;
+
+    @MockitoBean
     private WorkspaceRepository workspaceRepository;
 
     @MockitoBean
@@ -61,7 +79,6 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private NotificationRepository notificationRepository;
-
 
     @MockitoBean
     private SupportTicketRepository supportTicketRepository;
@@ -74,6 +91,24 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private NotificationPreferencesRepository notificationPreferencesRepository;
+
+    @MockitoBean
+    private PlanRepository planRepository;
+
+    @MockitoBean
+    private SubscriptionRepository subscriptionRepository;
+
+    @MockitoBean
+    private PaymentSessionRepository paymentSessionRepository;
+
+    @MockitoBean
+    private PaymentRepository paymentRepository;
+
+    @MockitoBean
+    private InvoiceRepository invoiceRepository;
+
+    @MockitoBean
+    private PaymentMethodRepository paymentMethodRepository;
 
     @MockitoBean
     private SecurityEventRepository securityEventRepository;

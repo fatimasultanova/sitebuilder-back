@@ -7,6 +7,7 @@ import az.baku.managesystemback.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,7 +49,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter
-    ) throws Exception {
+    )   {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -62,12 +63,17 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
                         .requestMatchers(
-                                "/api/auth/logout",
-                                "/auth/logout",
                                 "/api/auth/oauth/google/link",
                                 "/auth/oauth/google/link"
                         ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/logout",
+                                "/api/auth/logout"
+                        ).authenticated()
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                        .requestMatchers("/api/public/**", "/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/billing/plans", "/api/billing/plans").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -100,13 +106,26 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Public snapshots contain no account data and are fetched without credentials.
+        // Custom visitor hosts must not gain CORS access to private account endpoints.
+        CorsConfiguration publicSites = new CorsConfiguration();
+        publicSites.setAllowedOrigins(List.of("*"));
+        publicSites.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicSites.setAllowedHeaders(List.of("Content-Type"));
+        publicSites.setAllowCredentials(false);
+        publicSites.setMaxAge(3600L);
+        source.registerCorsConfiguration("/api/public/sites/**", publicSites);
         source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/deployments/**", configuration);
+        source.registerCorsConfiguration("/activity", configuration);
+        source.registerCorsConfiguration("/usage/**", configuration);
         source.registerCorsConfiguration("/auth/**", configuration);
         source.registerCorsConfiguration("/profile/**", configuration);
         source.registerCorsConfiguration("/workspaces/**", configuration);
         source.registerCorsConfiguration("/notifications/**", configuration);
         source.registerCorsConfiguration("/support/**", configuration);
         source.registerCorsConfiguration("/account/**", configuration);
+        source.registerCorsConfiguration("/billing/**", configuration);
         return source;
     }
 }

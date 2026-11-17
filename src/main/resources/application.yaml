@@ -14,11 +14,12 @@ spring:
     # Otherwise connects to the local PostgreSQL database.
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${PGUSER:postgres}
-    password: ${PGPASSWORD:102007fs}
+    password: ${PGPASSWORD:change-me}
 
   jpa:
     open-in-view: false
     show-sql: true
+    defer-datasource-initialization: true
     hibernate:
       ddl-auto: validate
     properties:
@@ -32,7 +33,24 @@ spring:
       max-file-size: 5MB
       max-request-size: 6MB
 
+  sql:
+    init:
+      mode: always
+
+billing:
+  provider: ${BILLING_PROVIDER:fake}
+
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  published-url-template: ${PUBLISHED_URL_TEMPLATE:}
+
+  # Custom-domain DNS targets. Leave empty to omit a record instead of inventing one.
+  # DOMAINS_A_RECORDS is a comma-separated list of IPv4 addresses.
+  domains:
+    cname-target: ${DOMAINS_CNAME_TARGET:}
+    a-records: ${DOMAINS_A_RECORDS:}
+    platform-base-domain: ${DOMAINS_PLATFORM_BASE_DOMAIN:}
+
   mail:
     provider: ${MAIL_PROVIDER:brevo}
     brevo:

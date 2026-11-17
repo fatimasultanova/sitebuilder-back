@@ -4,6 +4,7 @@ import az.baku.managesystemback.dto.response.ApiErrorResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -97,6 +98,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ApiErrorResponse("Resource not found.", Map.of()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        "A record with the same unique value already exists.",
+                        Map.of()
+                ));
     }
 
     @ExceptionHandler(Exception.class)

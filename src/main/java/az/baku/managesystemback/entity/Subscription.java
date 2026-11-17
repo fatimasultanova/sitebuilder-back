@@ -25,6 +25,16 @@ public class Subscription {
     @Column(nullable = false)
     private String status; // ACTIVE, CANCELED, EXPIRED
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "billing_cycle", nullable = false, length = 20)
+    private BillingCycle billingCycle;
+
+    @Column(name = "current_period_end")
+    private LocalDateTime currentPeriodEnd;
+
+    @Column(name = "cancel_at_period_end", nullable = false)
+    private boolean cancelAtPeriodEnd;
+
     @Column(nullable = false)
     private LocalDateTime startDate;
 

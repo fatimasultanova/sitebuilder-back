@@ -77,6 +77,78 @@ public class EmailContentBuilder {
         return new EmailMessage(toEmail, toName, subject, html, text);
     }
 
+    public EmailMessage passwordChangedEmail(String toEmail, String toName) {
+        boolean azerbaijani = isAzerbaijani();
+
+        String subject = azerbaijani ? "Şifrəniz dəyişdirildi" : "Your password was changed";
+        String heading = subject;
+        String greeting = azerbaijani ? "Salam" : "Hello";
+        String intro = azerbaijani
+                ? "Site Builder hesabınızın şifrəsi dəyişdirildi."
+                : "The password for your Site Builder account was changed.";
+        String notice = azerbaijani
+                ? "Bu dəyişikliyi siz etməmisinizsə, dərhal dəstək komandası ilə əlaqə saxlayın."
+                : "If you did not make this change, please contact support immediately.";
+
+        String text = """
+                %s
+
+                %s
+
+                %s
+                """.formatted(greetingLine(greeting, toName), intro, notice);
+        String html = buildNoticeHtml(azerbaijani ? "az" : "en", heading, greeting, toName, intro, notice);
+
+        return new EmailMessage(toEmail, toName, subject, html, text);
+    }
+
+    private String buildNoticeHtml(String language, String heading, String greeting, String name,
+                                   String intro, String notice) {
+        String safeGreeting = HtmlUtils.htmlEscape(greetingLine(greeting, name));
+        String safeHeading = HtmlUtils.htmlEscape(heading);
+        String safeIntro = HtmlUtils.htmlEscape(intro);
+        String safeNotice = HtmlUtils.htmlEscape(notice);
+
+        return """
+                <!DOCTYPE html>
+                <html lang="%s">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>%s</title>
+                </head>
+                <body style="margin:0;padding:0;background-color:#F3F4F6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                  <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:24px 12px;">
+                    <tr>
+                      <td align="center">
+                        <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#FFFFFF;border-radius:12px;padding:32px;box-sizing:border-box;">
+                          <tr>
+                            <td>
+                              <p style="margin:0 0 24px;color:%s;font-size:18px;font-weight:700;">%s</p>
+                              <h1 style="margin:0 0 16px;color:#111827;font-size:24px;line-height:1.3;">%s</h1>
+                              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">%s</p>
+                              <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">%s</p>
+                              <p style="margin:0;color:#6B7280;font-size:14px;line-height:1.5;">%s</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </body>
+                </html>
+                """.formatted(
+                language,
+                safeHeading,
+                BUTTON_COLOR,
+                HtmlUtils.htmlEscape(BRAND),
+                safeHeading,
+                safeGreeting,
+                safeIntro,
+                safeNotice
+        );
+    }
+
     private String buildText(String greeting, String name, String intro, String link,
                              String expiryText, String ignore) {
         return """
