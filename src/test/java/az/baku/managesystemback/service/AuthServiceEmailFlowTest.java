@@ -232,7 +232,7 @@ class AuthServiceEmailFlowTest {
         return RegisterRequest.builder()
                 .name("New User")
                 .email("new@example.com")
-                .password("secret1")
+                .password("secret123")
                 .build();
     }
 

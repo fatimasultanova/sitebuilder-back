@@ -66,6 +66,201 @@ public class AuthService {
     private final AuthProperties authProperties;
     private final SecurityEventService securityEventService;
 
+
+    @Transactional
+    public LoginResponse loginWithGoogle(String email, String name, String googleSubject) {
+        return loginWithGoogle("login", email, name, googleSubject, null, "Google OAuth");
+    }
+
+    @Transactional
+    public LoginResponse loginWithGoogle(
+            String rawIntent,
+            String email,
+            String name,
+            String googleSubject
+    ) {
+        return loginWithGoogle(rawIntent, email, name, googleSubject, null, "Google OAuth");
+    }
+
+    @Transactional
+    public LoginResponse loginWithGoogle(
+            String rawIntent,
+            String email,
+            String name,
+            String googleSubject,
+            String ipAddress,
+            String userAgent
+    ) {
+        String intent = rawIntent == null || rawIntent.isBlank()
+                ? "LOGIN"
+                : rawIntent.trim().toUpperCase(Locale.ROOT);
+
+        if (!intent.equals("LOGIN") && !intent.equals("REGISTER")) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Unsupported Google authentication intent."
+            );
+        }
+
+        String normalized = normalizeEmail(email);
+        User user = userRepository.findByEmailIgnoreCase(normalized).orElse(null);
+
+        if (intent.equals("REGISTER")) {
+            if (user != null) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "An account with this email already exists."
+                );
+            }
+
+            NameParts parts = splitName(
+                    name == null || name.isBlank() ? "Google User" : name,
+                    null
+            );
+
+            user = User.builder()
+                    .name(parts.name())
+                    .surname(parts.surname())
+                    .email(normalized)
+                    .password(passwordEncoder.encode(TokenUtils.generateToken()))
+                    .role(RoleUtils.toStoredRole(RoleUtils.USER))
+                    .enabled(true)
+                    .emailVerified(true)
+                    .emailVerifiedAt(LocalDateTime.now())
+                    .googleSubject(googleSubject)
+                    .build();
+
+            try {
+                user = userRepository.saveAndFlush(user);
+            } catch (DataIntegrityViolationException ex) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "An account with this email or Google account already exists."
+                );
+            }
+        } else {
+            if (user == null) {
+                throw new ApiException(
+                        HttpStatus.UNAUTHORIZED,
+                        INVALID_CREDENTIALS_MESSAGE
+                );
+            }
+
+            if (!user.isEnabled() || !user.isEmailVerified()) {
+                throw new ApiException(
+                        HttpStatus.FORBIDDEN,
+                        "This account is not available for Google sign-in."
+                );
+            }
+
+            if (user.getGoogleSubject() != null
+                    && !user.getGoogleSubject().equals(googleSubject)) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "A different Google account is already linked."
+                );
+            }
+
+            user.setGoogleSubject(googleSubject);
+
+            try {
+                user = userRepository.saveAndFlush(user);
+            } catch (DataIntegrityViolationException ex) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "This Google account is already linked to another user."
+                );
+            }
+        }
+
+        String effectiveAgent = (userAgent == null || userAgent.isBlank()) ? "Google OAuth" : userAgent;
+        CreatedSession session = createSession(user, ipAddress, effectiveAgent);
+        securityEventService.record(
+                user,
+                SecurityEventService.LOGIN,
+                ipAddress,
+                effectiveAgent,
+                null,
+                session.session().getPublicId()
+        );
+        return new LoginResponse(session.rawToken(), UserResponse.from(user));
+    }
+
+    @Transactional
+    public LoginResponse linkGoogleAccount(
+            Long userId,
+            String googleEmail,
+            String googleSubject
+    ) {
+        return linkGoogleAccount(userId, googleEmail, googleSubject, null, "Google account link");
+    }
+
+    @Transactional
+    public LoginResponse linkGoogleAccount(
+            Long userId,
+            String googleEmail,
+            String googleSubject,
+            String ipAddress,
+            String userAgent
+    ) {
+        if (userId == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found."
+                ));
+
+        if (!user.isEnabled() || !user.isEmailVerified()) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "This account is not available for Google linking."
+            );
+        }
+
+        if (googleEmail == null
+                || !user.getEmail().equalsIgnoreCase(googleEmail.trim())) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "The verified Google email must match this account's email."
+            );
+        }
+
+        if (user.getGoogleSubject() != null
+                && !user.getGoogleSubject().equals(googleSubject)) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "A different Google account is already linked."
+            );
+        }
+
+        user.setGoogleSubject(googleSubject);
+
+        try {
+            user = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "This Google account is already linked to another user."
+            );
+        }
+
+        String effectiveAgent = (userAgent == null || userAgent.isBlank()) ? "Google account link" : userAgent;
+        CreatedSession session = createSession(user, ipAddress, effectiveAgent);
+        securityEventService.record(
+                user,
+                SecurityEventService.LOGIN,
+                ipAddress,
+                effectiveAgent,
+                null,
+                session.session().getPublicId()
+        );
+        return new LoginResponse(session.rawToken(), UserResponse.from(user));
+    }
+
+
     @Transactional
     public String register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());

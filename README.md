@@ -90,20 +90,19 @@ and no mail is sent over SMTP.
    A verified own domain with DKIM/SPF configured is the reliable option.
 
 ### Railway variables
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `MAIL_PROVIDER` | `brevo` | Only `brevo` is implemented. |
-| `BREVO_API_KEY` | empty | Required only when email delivery is enabled. |
-| `BREVO_BASE_URL` | `https://api.brevo.com` | |
-| `BREVO_CONNECT_TIMEOUT` | `3s` | |
-| `BREVO_READ_TIMEOUT` | `8s` | |
-| `BREVO_MAX_RETRIES` | `2` | Connection failures/connect timeouts and 429 only. |
-| `AUTH_EMAIL_ENABLED` | `false` | `true` enables real Brevo delivery. |
-| `AUTH_EMAIL_FROM` | `Site Builder <no-reply@sitebuilder.local>` | `Name <email>` or plain email. |
-| `FRONTEND_BASE_URL` | `http://localhost:3000` | No trailing slash, no path. |
-| `AUTH_EMAIL_LOCALE` | `az` | `az` or `en`. |
-| `AUTH_RESEND_COOLDOWN` | `60s` | Minimum time between verification resends. |
+| Variable                | Default                                      | Notes                                              |
+|-------------------------|----------------------------------------------|----------------------------------------------------|
+| `MAIL_PROVIDER`         | `brevo`                                      | Only `brevo` is implemented.                       |
+| `BREVO_API_KEY`         | empty                                        | Required only when email delivery is enabled.      |
+| `BREVO_BASE_URL`        | `https://api.brevo.com`                      |                                                    |
+| `BREVO_CONNECT_TIMEOUT` | `3s`                                         |                                                    |
+| `BREVO_READ_TIMEOUT`    | `8s`                                         |                                                    |
+| `BREVO_MAX_RETRIES`     | `2`                                          | Connection failures/connect timeouts and 429 only. |
+| `AUTH_EMAIL_ENABLED`    | `false`                                      | `true` enables real Brevo delivery.                |
+| `AUTH_EMAIL_FROM`       | `Site Builder <no-reply@sitebuilder.local>`  | `Name <email>` or plain email.                     |
+| `FRONTEND_BASE_URL`     | `http://localhost:3000`                      | No trailing slash, no path.                        |
+| `AUTH_EMAIL_LOCALE`     | `az`                                         | `az` or `en`.                                      |
+| `AUTH_RESEND_COOLDOWN`  | `60s`                                        | Minimum time between verification resends.         |
 
 With `AUTH_EMAIL_ENABLED=false` the app starts even if `BREVO_API_KEY` is blank
 or `AUTH_EMAIL_FROM` is invalid. When it is `true` with `MAIL_PROVIDER=brevo`,
@@ -141,3 +140,135 @@ FRONTEND_BASE_URL='https://your-frontend.example' \
 Emails are published as events and sent asynchronously only after the database
 transaction commits. A rollback never sends an email, and a Brevo failure never
 fails or slows the register/resend/forgot-password HTTP response.
+
+## Backend 1 account and workspace API
+
+All routes below use the `/api` prefix and require
+`Authorization: Bearer <session-token>` except public authentication flows.
+
+Hibernate runs with `ddl-auto=validate`, so required database objects must exist
+before startup. List endpoints use zero-based `page` and `size` parameters
+(default 20, maximum 100).
+
+Workspace, workspace-member and support-ticket lists return:
+
+```json
+{
+  "data": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0
+}
+```
+
+### Authentication
+
+- `POST /api/auth/register` (201), `/login` (200), `/logout` (204)
+- `POST /api/auth/forgot-password`, `/reset-password`, `/resend-verification`, `/verify-email`
+- `POST /api/auth/oauth/google/start`, `/callback`, `/link`
+- Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` to enable Google OAuth.
+- Password login requires a verified email address.
+- Sessions are opaque random bearer credentials stored as hashes in `auth_sessions`; this is not JWT.
+
+### Profile
+
+- `GET /api/profile`, `PATCH /api/profile`
+- `POST /api/profile/avatar` multipart field `avatar`
+- `DELETE /api/profile/avatar` (204)
+
+Avatar accepts JPEG, PNG, or WebP. Maximum file size is 5 MB and maximum multipart
+request size is 6 MB. Oversized uploads return 413 and a missing `avatar` part
+returns 422.
+
+Avatar content is currently stored as a data URL in `users.avatar_url`.
+
+### Workspaces and members
+
+- `GET /api/workspaces?page=0&size=20`
+- `GET /api/workspaces/{id}`
+- `POST /api/workspaces`
+- `PUT /api/workspaces/{id}`
+- `DELETE /api/workspaces/{id}`
+- `GET /api/workspaces/{id}/members?page=0&size=20`
+- `GET /api/workspaces/{id}/members/{memberId}`
+- `POST /api/workspaces/{id}/members`
+- `POST /api/workspaces/{id}/members/{memberId}/invite/resend`
+- `POST /api/workspaces/invitations/accept`
+- `PATCH /api/workspaces/{id}/members/{memberId}`
+- `DELETE /api/workspaces/{id}/members/{memberId}`
+
+Supported member roles are `admin`, `editor`, and `viewer`. Role input is
+case-insensitive. The default role is `viewer`.
+
+Invited users must already have accounts. Invitation tokens expire after seven
+days. Accepting an invitation records `joinedAt`.
+
+Only the workspace owner can manage workspace settings and members.
+
+### Notifications
+
+- `GET /api/notifications?page=0&size=20&unread=false`
+- `GET /api/notifications/unread-count`
+- `PATCH /api/notifications/{id}/read`
+- `POST /api/notifications/read-all`
+- `GET` and `PATCH /api/notifications/preferences`
+
+Notifications keep a separate pagination format:
+
+```json
+{
+  "notifications": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0
+}
+```
+
+Notification creation uses safe fallbacks for invalid category/type/title/message
+values, and missing recipients are ignored. If in-app notifications are disabled,
+the notification is not stored.
+
+### User support
+
+- `POST /api/support/requests` with `subject`, `category`, and `message` (201)
+- `GET /api/support/requests?page=0&size=20`
+- `GET /api/support/requests/{id}`
+
+Supported categories: `account`, `website`, `billing`, `technical`, `other`.
+
+Ticket lists/details are restricted to the authenticated requester.
+
+### Database update
+
+`src/main/resources/db/migration/V1__backend1_account_modules.sql` contains
+additive PostgreSQL DDL for Backend 1.
+
+The project uses Hibernate `ddl-auto=validate`; the migration is not automatically
+executed by Flyway and must be applied through the database release process.
+
+### Verification
+
+Swagger UI:
+
+```text
+http://localhost:8081/swagger-ui/index.html
+```
+
+Windows:
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat build
+```
+
+Manual smoke tests:
+
+```text
+GET /api/workspaces
+GET /api/support/requests
+GET /api/notifications
+```
+
+All three should return `200 OK` for an authenticated user.

@@ -19,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import az.baku.managesystemback.service.GoogleOAuthService;
 
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +58,11 @@ class AccountSecurityControllerSecurityTest {
     private AuthService authService;
 
     @MockitoBean
+
+    private GoogleOAuthService googleOAuthService;
+
+    @MockitoBean
+
     private AuthSessionRepository authSessionRepository;
 
     @Test

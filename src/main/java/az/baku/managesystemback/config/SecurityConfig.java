@@ -49,7 +49,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter
-    ) throws Exception {
+    )   {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -62,7 +62,15 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/logout", "/api/auth/logout").authenticated()
+                        .requestMatchers(
+                                "/api/auth/oauth/google/link",
+                                "/auth/oauth/google/link"
+                        ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/logout",
+                                "/api/auth/logout"
+                        ).authenticated()
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                         .requestMatchers("/api/public/**", "/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/billing/plans", "/api/billing/plans").permitAll()
@@ -112,9 +120,12 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/activity", configuration);
         source.registerCorsConfiguration("/usage/**", configuration);
         source.registerCorsConfiguration("/auth/**", configuration);
-        source.registerCorsConfiguration("/billing/**", configuration);
-        source.registerCorsConfiguration("/account/**", configuration);
+        source.registerCorsConfiguration("/profile/**", configuration);
+        source.registerCorsConfiguration("/workspaces/**", configuration);
         source.registerCorsConfiguration("/notifications/**", configuration);
+        source.registerCorsConfiguration("/support/**", configuration);
+        source.registerCorsConfiguration("/account/**", configuration);
+        source.registerCorsConfiguration("/billing/**", configuration);
         return source;
     }
 }
