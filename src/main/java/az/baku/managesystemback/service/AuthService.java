@@ -22,7 +22,6 @@ import az.baku.managesystemback.repository.PasswordResetTokenRepository;
 import az.baku.managesystemback.repository.UserRepository;
 import az.baku.managesystemback.util.RoleUtils;
 import az.baku.managesystemback.util.TokenUtils;
-import az.baku.managesystemback.util.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,10 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -63,11 +64,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final AuthProperties authProperties;
-
+    private final SecurityEventService securityEventService;
 
     @Transactional
     public LoginResponse loginWithGoogle(String email, String name, String googleSubject) {
-        return loginWithGoogle("login", email, name, googleSubject);
+        return loginWithGoogle("login", email, name, googleSubject, null, "Google OAuth");
     }
 
     @Transactional
@@ -76,6 +77,18 @@ public class AuthService {
             String email,
             String name,
             String googleSubject
+    ) {
+        return loginWithGoogle(rawIntent, email, name, googleSubject, null, "Google OAuth");
+    }
+
+    @Transactional
+    public LoginResponse loginWithGoogle(
+            String rawIntent,
+            String email,
+            String name,
+            String googleSubject,
+            String ipAddress,
+            String userAgent
     ) {
         String intent = rawIntent == null || rawIntent.isBlank()
                 ? "LOGIN"
@@ -112,6 +125,7 @@ public class AuthService {
                     .role(RoleUtils.toStoredRole(RoleUtils.USER))
                     .enabled(true)
                     .emailVerified(true)
+                    .emailVerifiedAt(LocalDateTime.now())
                     .googleSubject(googleSubject)
                     .build();
 
@@ -158,10 +172,17 @@ public class AuthService {
             }
         }
 
-        return new LoginResponse(
-                createSession(user, null, "Google OAuth"),
-                UserResponse.from(user)
+        String effectiveAgent = (userAgent == null || userAgent.isBlank()) ? "Google OAuth" : userAgent;
+        CreatedSession session = createSession(user, ipAddress, effectiveAgent);
+        securityEventService.record(
+                user,
+                SecurityEventService.LOGIN,
+                ipAddress,
+                effectiveAgent,
+                null,
+                session.session().getPublicId()
         );
+        return new LoginResponse(session.rawToken(), UserResponse.from(user));
     }
 
     @Transactional
@@ -169,6 +190,17 @@ public class AuthService {
             Long userId,
             String googleEmail,
             String googleSubject
+    ) {
+        return linkGoogleAccount(userId, googleEmail, googleSubject, null, "Google account link");
+    }
+
+    @Transactional
+    public LoginResponse linkGoogleAccount(
+            Long userId,
+            String googleEmail,
+            String googleSubject,
+            String ipAddress,
+            String userAgent
     ) {
         if (userId == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
@@ -214,21 +246,21 @@ public class AuthService {
             );
         }
 
-        String sessionToken = createSession(user, null, "Google account link");
-        return new LoginResponse(sessionToken, UserResponse.from(user));
-    }
-
-    @Transactional
-    public void logout(String rawToken) {
-        if (rawToken == null || rawToken.isBlank()) return;
-        authSessionRepository.findByTokenHash(TokenUtils.sha256(rawToken.trim())).ifPresent(session -> {
-            if (session.getRevokedAt() == null) session.setRevokedAt(Instant.now());
-        });
+        String effectiveAgent = (userAgent == null || userAgent.isBlank()) ? "Google account link" : userAgent;
+        CreatedSession session = createSession(user, ipAddress, effectiveAgent);
+        securityEventService.record(
+                user,
+                SecurityEventService.LOGIN,
+                ipAddress,
+                effectiveAgent,
+                null,
+                session.session().getPublicId()
+        );
+        return new LoginResponse(session.rawToken(), UserResponse.from(user));
     }
 
     @Transactional
     public String register(RegisterRequest request) {
-        PasswordPolicy.validate(request.getPassword(), "password");
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -291,8 +323,16 @@ public class AuthService {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account role is not authorized.");
         }
 
-        String rawToken = createSession(user, ipAddress, userAgent);
-        return new LoginResponse(rawToken, UserResponse.from(user));
+        CreatedSession session = createSession(user, ipAddress, userAgent);
+        securityEventService.record(
+                user,
+                SecurityEventService.LOGIN,
+                ipAddress,
+                userAgent,
+                null,
+                session.session().getPublicId()
+        );
+        return new LoginResponse(session.rawToken(), UserResponse.from(user));
     }
 
     @Transactional
@@ -300,8 +340,20 @@ public class AuthService {
         String email = normalizeEmail(request.getEmail());
 
         userRepository.findByEmailIgnoreCase(email)
-                .filter(User::isEnabled)
                 .ifPresent(user -> {
+                    securityEventService.record(
+                            user,
+                            SecurityEventService.RECOVERY_REQUESTED,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+
+                    if (!user.isEnabled()) {
+                        return;
+                    }
+
                     passwordResetTokenRepository.deleteAllByUser(user);
 
                     String rawToken = TokenUtils.generateToken();
@@ -336,36 +388,39 @@ public class AuthService {
         }
 
         User user = resetToken.getUser();
-        PasswordPolicy.validate(request.getNewPassword(), "newPassword");
-        PasswordPolicy.ensureNotSameAsCurrent(
-                request.getNewPassword(), user.getPassword(), passwordEncoder, "newPassword");
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
         passwordResetTokenRepository.deleteAllByUser(user);
         authSessionRepository.deleteAllByUser(user);
+
+        securityEventService.record(
+                user,
+                SecurityEventService.PASSWORD_CHANGED,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     @Transactional
     public String resendVerification(ResendVerificationRequest request) {
         String email = normalizeEmail(request.getEmail());
-        Instant now = Instant.now();
 
         userRepository.findByEmailIgnoreCase(email)
-                .filter(User::isEnabled)
-                .filter(user -> !user.isEmailVerified())
-                .ifPresent(user -> {
-                    if (isResendCooldownActive(user, now)) {
-                        return;
-                    }
-                    issueVerificationToken(user);
-                });
+                .ifPresent(this::issueVerificationEmailIfAllowed);
 
         return GENERIC_VERIFICATION_MESSAGE;
     }
 
     @Transactional
     public String verifyEmail(VerifyEmailRequest request) {
+        return verifyEmail(request, null, null);
+    }
+
+    @Transactional
+    public String verifyEmail(VerifyEmailRequest request, String ipAddress, String userAgent) {
         String tokenHash = TokenUtils.sha256(request.getToken().trim());
         Instant now = Instant.now();
 
@@ -379,11 +434,62 @@ public class AuthService {
 
         User user = verificationToken.getUser();
         user.setEmailVerified(true);
+        user.setEmailVerifiedAt(LocalDateTime.now());
         userRepository.save(user);
 
         emailVerificationTokenRepository.deleteAllByUser(user);
 
+        securityEventService.record(
+                user,
+                SecurityEventService.EMAIL_VERIFIED,
+                ipAddress,
+                userAgent,
+                null,
+                null
+        );
+
         return "Email address verified successfully.";
+    }
+
+    @Transactional
+    public boolean issueVerificationEmailIfAllowed(User user) {
+        if (user == null || !user.isEnabled() || user.isEmailVerified()) {
+            return false;
+        }
+
+        Instant now = Instant.now();
+        if (isResendCooldownActive(user, now)) {
+            return false;
+        }
+
+        issueVerificationToken(user);
+        return true;
+    }
+
+    @Transactional
+    public void logout(long userId, UUID sessionPublicId, String ipAddress, String userAgent) {
+        Optional<AuthSession> sessionOptional = sessionPublicId == null
+                ? Optional.empty()
+                : authSessionRepository.findByPublicIdAndUserId(sessionPublicId, userId);
+
+        if (sessionOptional.isEmpty()) {
+            return;
+        }
+
+        AuthSession session = sessionOptional.get();
+        if (session.getRevokedAt() == null) {
+            session.setRevokedAt(Instant.now());
+            authSessionRepository.save(session);
+        }
+
+        securityEventService.record(
+                session.getUser(),
+                SecurityEventService.LOGOUT,
+                ipAddress,
+                userAgent,
+                null,
+                session.getPublicId()
+        );
     }
 
     private void issueVerificationToken(User user) {
@@ -425,11 +531,12 @@ public class AuthService {
         return user.getName() + " " + user.getSurname();
     }
 
-    private String createSession(User user, String ipAddress, String userAgent) {
+    private CreatedSession createSession(User user, String ipAddress, String userAgent) {
         String rawToken = TokenUtils.generateToken();
         Instant now = Instant.now();
 
         AuthSession session = AuthSession.builder()
+                .publicId(UUID.randomUUID())
                 .tokenHash(TokenUtils.sha256(rawToken))
                 .user(user)
                 .createdAt(now)
@@ -440,7 +547,7 @@ public class AuthService {
                 .build();
 
         authSessionRepository.save(session);
-        return rawToken;
+        return new CreatedSession(rawToken, session);
     }
 
     private boolean passwordMatches(String rawPassword, String storedHash) {
@@ -496,5 +603,8 @@ public class AuthService {
     }
 
     private record NameParts(String name, String surname) {
+    }
+
+    private record CreatedSession(String rawToken, AuthSession session) {
     }
 }

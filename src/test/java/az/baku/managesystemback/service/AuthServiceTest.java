@@ -53,6 +53,9 @@ class AuthServiceTest {
     private ApplicationEventPublisher eventPublisher;
 
     @Mock
+    private SecurityEventService securityEventService;
+
+    @Mock
     private AuthProperties authProperties;
 
     @InjectMocks

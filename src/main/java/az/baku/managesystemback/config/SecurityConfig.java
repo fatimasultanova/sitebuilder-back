@@ -61,6 +61,12 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
+                        .requestMatchers(
+                                "/api/auth/logout",
+                                "/auth/logout",
+                                "/api/auth/oauth/google/link",
+                                "/auth/oauth/google/link"
+                        ).authenticated()
                         .requestMatchers("/api/auth/**", "/auth/**").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

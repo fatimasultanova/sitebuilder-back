@@ -17,11 +17,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
-import az.baku.managesystemback.repository.NotificationPreferenceRepository;
 import az.baku.managesystemback.repository.NotificationRepository;
 import az.baku.managesystemback.repository.OAuthStateRepository;
 import az.baku.managesystemback.repository.SupportTicketRepository;
 import az.baku.managesystemback.repository.WorkspaceMemberRepository;
+import az.baku.managesystemback.service.SecurityEventService;
+import az.baku.managesystemback.repository.NotificationPreferencesRepository;
+import az.baku.managesystemback.repository.SecurityEventRepository;
 
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude="
@@ -38,6 +40,9 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private AuthSessionRepository authSessionRepository;
+
+    @MockitoBean
+    private SecurityEventService securityEventService;
 
     @MockitoBean
     private PasswordResetTokenRepository passwordResetTokenRepository;
@@ -57,8 +62,6 @@ class ManageSystemBackApplicationTests {
     @MockitoBean
     private NotificationRepository notificationRepository;
 
-    @MockitoBean
-    private NotificationPreferenceRepository notificationPreferenceRepository;
 
     @MockitoBean
     private SupportTicketRepository supportTicketRepository;
@@ -68,6 +71,12 @@ class ManageSystemBackApplicationTests {
 
     @MockitoBean
     private OAuthStateRepository oauthStateRepository;
+
+    @MockitoBean
+    private NotificationPreferencesRepository notificationPreferencesRepository;
+
+    @MockitoBean
+    private SecurityEventRepository securityEventRepository;
 
     @Test
     void contextLoads() {

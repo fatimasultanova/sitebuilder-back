@@ -1,1 +1,10 @@
-package az.baku.managesystemback.repository;import az.baku.managesystemback.entity.OAuthState;import org.springframework.data.jpa.repository.JpaRepository;import java.util.Optional;public interface OAuthStateRepository extends JpaRepository<OAuthState,Long>{Optional<OAuthState> findByStateHash(String hash);}
+package az.baku.managesystemback.repository;
+
+import az.baku.managesystemback.entity.OAuthState;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface OAuthStateRepository extends JpaRepository<OAuthState, Long> {
+    Optional<OAuthState> findByStateHash(String hash);
+}

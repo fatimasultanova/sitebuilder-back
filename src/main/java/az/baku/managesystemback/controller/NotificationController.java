@@ -1,21 +1,17 @@
 package az.baku.managesystemback.controller;
 
-import az.baku.managesystemback.dto.request.NotificationPreferenceRequest;
 import az.baku.managesystemback.dto.response.NotificationResponse;
-import az.baku.managesystemback.dto.response.NotificationPreferencesResponse;
-import az.baku.managesystemback.entity.NotificationPreference;
 import az.baku.managesystemback.security.AuthenticatedUser;
 import az.baku.managesystemback.service.NotificationService;
-import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import io.swagger.v3.oas.annotations.Operation;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -50,8 +46,8 @@ public class NotificationController {
     }
 
     @GetMapping("/unread-count")
-    public java.util.Map<String, Long> count(@AuthenticationPrincipal AuthenticatedUser u) {
-        return java.util.Map.of("count", s.unread(u.id()));
+    public Map<String, Long> count(@AuthenticationPrincipal AuthenticatedUser u) {
+        return Map.of("count", s.unread(u.id()));
     }
 
     @PatchMapping("/{id}/read")
@@ -64,15 +60,5 @@ public class NotificationController {
     public ResponseEntity<Void> all(@AuthenticationPrincipal AuthenticatedUser u) {
         s.readAll(u.id());
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/preferences")
-    public NotificationPreferencesResponse prefs(@AuthenticationPrincipal AuthenticatedUser u) {
-        return NotificationPreferencesResponse.from(s.prefs(u.id()));
-    }
-
-    @PatchMapping("/preferences")
-    public NotificationPreferencesResponse update(@AuthenticationPrincipal AuthenticatedUser u, @Valid @RequestBody NotificationPreferenceRequest r) {
-        return NotificationPreferencesResponse.from(s.update(u.id(), r));
     }
 }

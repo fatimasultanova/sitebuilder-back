@@ -2,19 +2,17 @@ package az.baku.managesystemback.repository;
 
 import az.baku.managesystemback.entity.AuthSession;
 import az.baku.managesystemback.entity.User;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface AuthSessionRepository extends JpaRepository<AuthSession, Long> {
-
-    Optional<AuthSession> findByTokenHash(String tokenHash);
 
     @Query("""
             select s from AuthSession s
@@ -23,36 +21,25 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, Long> 
               and s.revokedAt is null
               and s.expiresAt > :now
             """)
-    Optional<AuthSession> findActiveByTokenHash(
-            @Param("tokenHash") String tokenHash,
-            @Param("now") Instant now
-    );
+    Optional<AuthSession> findActiveByTokenHash(@Param("tokenHash") String tokenHash, @Param("now") Instant now);
 
-    Page<AuthSession> findAllByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
-            long userId,
-            Instant now,
-            Pageable pageable
-    );
+    Optional<AuthSession> findByPublicIdAndUserId(@Param("publicId") UUID publicId, @Param("userId") long userId);
 
-    Optional<AuthSession> findByIdAndUserId(long sessionId, long userId);
+    List<AuthSession> findAllByUserIdAndRevokedAtIsNullAndExpiresAtAfter(long userId, Instant now);
 
     @Modifying
     @Query("""
             update AuthSession s
             set s.revokedAt = :now
             where s.user.id = :userId
-              and s.tokenHash <> :currentTokenHash
               and s.revokedAt is null
               and s.expiresAt > :now
+              and (:currentPublicId is null or s.publicId <> :currentPublicId)
             """)
     int revokeOtherActiveSessions(
             @Param("userId") long userId,
-            @Param("currentTokenHash") String currentTokenHash,
+            @Param("currentPublicId") UUID currentPublicId,
             @Param("now") Instant now
-    );
-    Page<AuthSession> findAllByUserIdOrderByCreatedAtDesc(
-            long userId,
-            Pageable pageable
     );
 
     @Modifying

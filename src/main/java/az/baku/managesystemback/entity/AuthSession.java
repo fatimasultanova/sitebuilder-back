@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -11,7 +12,8 @@ import java.time.Instant;
         name = "auth_sessions",
         indexes = {
                 @Index(name = "idx_auth_sessions_token_hash", columnList = "token_hash", unique = true),
-                @Index(name = "idx_auth_sessions_user_id", columnList = "user_id")
+                @Index(name = "idx_auth_sessions_user_id", columnList = "user_id"),
+                @Index(name = "ux_auth_sessions_public_id", columnList = "public_id", unique = true)
         }
 )
 @Getter
@@ -24,6 +26,10 @@ public class AuthSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+
+    @Builder.Default
+    @Column(name = "public_id", nullable = false, updatable = false, unique = true)
+    private UUID publicId = UUID.randomUUID();
 
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;

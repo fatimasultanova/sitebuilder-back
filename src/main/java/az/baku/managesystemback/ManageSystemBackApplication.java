@@ -9,4 +9,5 @@ public class ManageSystemBackApplication {
         SpringApplication.run(ManageSystemBackApplication.class, args);
     }
 
+
 }

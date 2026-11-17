@@ -2,13 +2,23 @@ package az.baku.managesystemback.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-public record ChangePasswordRequest(
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class ChangePasswordRequest {
+
         @NotBlank(message = "Current password is required.")
-        String currentPassword,
+        private String currentPassword;
 
         @NotBlank(message = "New password is required.")
-        @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters.")
-        String newPassword
-) {
+        @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters.")
+        private String newPassword;
 }

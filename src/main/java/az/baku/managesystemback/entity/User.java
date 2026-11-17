@@ -46,6 +46,9 @@ public class User {
     @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
     private boolean emailVerified = false;
 
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     @Column(name = "avatar_url", columnDefinition = "text")
     private String avatarUrl;
 

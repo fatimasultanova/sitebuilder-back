@@ -84,7 +84,8 @@ class AuthServiceEmailFlowTest {
                 .withBean(PasswordResetTokenRepository.class, () -> passwordResetTokenRepository)
                 .withBean(EmailVerificationTokenRepository.class, () -> emailVerificationTokenRepository)
                 .withBean(PasswordEncoder.class, () -> passwordEncoder)
-                .withBean(EmailSender.class, () -> emailSender);
+                .withBean(EmailSender.class, () -> emailSender)
+                .withBean(SecurityEventService.class, () -> mock(SecurityEventService.class));
     }
 
     @Test

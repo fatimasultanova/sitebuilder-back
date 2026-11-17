@@ -83,6 +83,11 @@ public class GoogleOAuthService {
 
     @Transactional
     public LoginResponse callback(String code, String rawState) {
+        return callback(code, rawState, null, null);
+    }
+
+    @Transactional
+    public LoginResponse callback(String code, String rawState, String ipAddress, String userAgent) {
         OAuthState state = oauthStateRepository
                 .findByStateHash(TokenUtils.sha256(rawState.trim()))
                 .orElseThrow(() -> new ApiException(
@@ -137,7 +142,9 @@ public class GoogleOAuthService {
             return authService.linkGoogleAccount(
                     state.getLinkedUserId(),
                     email,
-                    googleSubject
+                    googleSubject,
+                    ipAddress,
+                    userAgent
             );
         }
 
@@ -145,7 +152,9 @@ public class GoogleOAuthService {
                 state.getIntent(),
                 email,
                 name,
-                googleSubject
+                googleSubject,
+                ipAddress,
+                userAgent
         );
     }
 

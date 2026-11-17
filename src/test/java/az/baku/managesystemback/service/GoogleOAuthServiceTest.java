@@ -1,39 +1,36 @@
 package az.baku.managesystemback.service;
 
 import az.baku.managesystemback.config.GoogleOAuthProperties;
+import az.baku.managesystemback.dto.response.LoginResponse;
 import az.baku.managesystemback.entity.OAuthState;
 import az.baku.managesystemback.exception.ApiException;
 import az.baku.managesystemback.repository.OAuthStateRepository;
 import az.baku.managesystemback.util.TokenUtils;
-import az.baku.managesystemback.dto.response.LoginResponse;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
-
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
@@ -337,7 +334,9 @@ class GoogleOAuthServiceTest {
                 eq("LOGIN"),
                 eq("test@example.com"),
                 eq("Test User"),
-                eq("google-sub-123")
+                eq("google-sub-123"),
+                isNull(),
+                isNull()
         )).thenReturn(expectedResponse);
 
         mockServer.expect(requestTo("https://oauth2.googleapis.com/token"))
@@ -389,10 +388,14 @@ class GoogleOAuthServiceTest {
                 "LOGIN",
                 "test@example.com",
                 "Test User",
-                "google-sub-123"
+                "google-sub-123",
+                null,
+                null
         );
 
         verify(authService, never()).linkGoogleAccount(
+                any(),
+                any(),
                 any(),
                 any(),
                 any()
@@ -400,6 +403,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: successfully completes Google REGISTER
     @Test
     void googleOAuthCallback_shouldRegisterSuccessfully_whenGoogleProfileIsValid() {
@@ -425,7 +429,9 @@ class GoogleOAuthServiceTest {
                 eq("REGISTER"),
                 eq("newuser@example.com"),
                 eq("New User"),
-                eq("google-register-sub")
+                eq("google-register-sub"),
+                isNull(),
+                isNull()
         )).thenReturn(expectedResponse);
 
         mockServer.expect(requestTo("https://oauth2.googleapis.com/token"))
@@ -474,10 +480,14 @@ class GoogleOAuthServiceTest {
                 "REGISTER",
                 "newuser@example.com",
                 "New User",
-                "google-register-sub"
+                "google-register-sub",
+                null,
+                null
         );
 
         verify(authService, never()).linkGoogleAccount(
+                any(),
+                any(),
                 any(),
                 any(),
                 any()
@@ -485,6 +495,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: successfully links Google account to an existing user
     @Test
     void googleOAuthCallback_shouldLinkAccountSuccessfully_whenGoogleProfileIsValid() {
@@ -511,7 +522,9 @@ class GoogleOAuthServiceTest {
         when(authService.linkGoogleAccount(
                 eq(linkedUserId),
                 eq("linked@example.com"),
-                eq("google-link-sub")
+                eq("google-link-sub"),
+                isNull(),
+                isNull()
         )).thenReturn(expectedResponse);
 
         mockServer.expect(requestTo("https://oauth2.googleapis.com/token"))
@@ -559,18 +572,23 @@ class GoogleOAuthServiceTest {
         verify(authService).linkGoogleAccount(
                 linkedUserId,
                 "linked@example.com",
-                "google-link-sub"
+                "google-link-sub",
+                null,
+                null
         );
 
         verify(authService, never()).loginWithGoogle(
                 anyString(),
                 anyString(),
                 anyString(),
-                anyString()
+                anyString(),
+                any(),
+                any()
         );
 
         mockServer.verify();
     }
+
     // Callback: returns 401 when Google token response has no access token
     @Test
     void googleOAuthCallback_shouldReturn401_whenAccessTokenIsMissing() {
@@ -619,6 +637,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: returns 401 when Google user profile is null
     @Test
     void googleOAuthCallback_shouldReturn401_whenProfileIsNull() {
@@ -670,6 +689,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: returns 401 when Google email is not verified
     @Test
     void googleOAuthCallback_shouldReturn401_whenEmailIsNotVerified() {
@@ -728,6 +748,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: returns 401 when Google profile has no email
     @Test
     void googleOAuthCallback_shouldReturn401_whenEmailIsMissing() {
@@ -785,6 +806,7 @@ class GoogleOAuthServiceTest {
 
         mockServer.verify();
     }
+
     // Callback: returns 401 when Google profile has no subject
     @Test
     void googleOAuthCallback_shouldReturn401_whenSubjectIsMissing() {

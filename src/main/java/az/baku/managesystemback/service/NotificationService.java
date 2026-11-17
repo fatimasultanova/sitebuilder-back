@@ -1,16 +1,20 @@
 package az.baku.managesystemback.service;
 
-import az.baku.managesystemback.dto.request.NotificationPreferenceRequest;
 import az.baku.managesystemback.entity.Notification;
-import az.baku.managesystemback.entity.NotificationPreference;
+import az.baku.managesystemback.entity.NotificationPreferences;
 import az.baku.managesystemback.entity.User;
 import az.baku.managesystemback.exception.ApiException;
-import az.baku.managesystemback.repository.*;
+import az.baku.managesystemback.repository.NotificationPreferencesRepository;
+import az.baku.managesystemback.repository.NotificationRepository;
+import az.baku.managesystemback.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Locale;
 import java.util.Set;
 
@@ -18,8 +22,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class NotificationService {
     private final NotificationRepository notifications;
-    private final NotificationPreferenceRepository preferences;
+    private final NotificationPreferencesRepository preferences;
     private final UserRepository users;
+
     private static final Set<String> SUPPORTED_CATEGORIES = Set.of(
             "website", "publishing", "domain", "system", "account", "billing"
     );
@@ -52,7 +57,7 @@ public class NotificationService {
         if (hasCategory && unread) {
             return notifications.findAllByUserIdAndCategoryAndReadAtIsNullOrderByCreatedAtDesc(
                     userId,
-                    category.trim().toLowerCase(java.util.Locale.ROOT),
+                    category.trim().toLowerCase(Locale.ROOT),
                     pageable
             );
         }
@@ -60,7 +65,7 @@ public class NotificationService {
         if (hasCategory) {
             return notifications.findAllByUserIdAndCategoryOrderByCreatedAtDesc(
                     userId,
-                    category.trim().toLowerCase(java.util.Locale.ROOT),
+                    category.trim().toLowerCase(Locale.ROOT),
                     pageable
             );
         }
@@ -82,18 +87,14 @@ public class NotificationService {
 
     @Transactional
     public void read(long uid, long id) {
-        if (notifications.markRead(id, uid) == 0 && !notifications.existsById(id))
+        if (notifications.markRead(id, uid) == 0 && !notifications.existsById(id)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Notification not found.");
+        }
     }
 
     @Transactional
     public void readAll(long uid) {
         notifications.markAllRead(uid);
-    }
-
-    @Transactional(readOnly = true)
-    public NotificationPreference prefs(long uid) {
-        return preferences.findByUserId(uid).orElseGet(() -> NotificationPreference.builder().user(user(uid)).build());
     }
 
     @Transactional
@@ -145,7 +146,7 @@ public class NotificationService {
                         "Notification recipient not found."
                 ));
 
-        NotificationPreference preference = preferences.findByUserId(userId).orElse(null);
+        NotificationPreferences preference = preferences.findById(userId).orElse(null);
 
         if (preference != null && !preference.isInApp()) {
             return;
@@ -158,20 +159,5 @@ public class NotificationService {
                 .title(title.trim())
                 .message(message.trim())
                 .build());
-    }
-
-    @Transactional
-    public NotificationPreference update(long uid, NotificationPreferenceRequest r) {
-        NotificationPreference p = preferences.findByUserId(uid).orElseGet(() -> NotificationPreference.builder().user(user(uid)).build());
-        if (r.inApp() != null) p.setInApp(r.inApp());
-        if (r.email() != null) p.setEmail(r.email());
-        if (r.securityAlerts() != null) p.setSecurityAlerts(r.securityAlerts());
-        if (r.websiteUpdates() != null) p.setWebsiteUpdates(r.websiteUpdates());
-        if (r.billingUpdates() != null) p.setBillingUpdates(r.billingUpdates());
-        return preferences.save(p);
-    }
-
-    private User user(long id) {
-        return users.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found."));
     }
 }
