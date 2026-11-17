@@ -8,11 +8,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import az.baku.managesystemback.dto.response.PageResponse;
+import io.swagger.v3.oas.annotations.Operation;
 
 @RestController
 @RequestMapping({"/api/support/requests", "/support/requests"})
@@ -27,8 +28,13 @@ public class SupportTicketController {
     }
 
     @GetMapping
-    public Page<SupportTicketResponse> list(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return s.list(u.id(), page, size);
+    @Operation(summary = "List current user's support tickets")
+    public PageResponse<SupportTicketResponse> list(
+            @AuthenticationPrincipal AuthenticatedUser u,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        return PageResponse.from(s.list(u.id(), page, size));
     }
 
     @GetMapping("/{id}")
@@ -36,4 +42,3 @@ public class SupportTicketController {
         return s.get(u.id(), id);
     }
 }
-

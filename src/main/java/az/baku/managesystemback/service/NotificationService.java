@@ -108,56 +108,56 @@ public class NotificationService {
         String normalizedCategory = category == null
                 ? ""
                 : category.trim().toLowerCase(Locale.ROOT);
+
         String normalizedType = type == null
                 ? ""
                 : type.trim().toLowerCase(Locale.ROOT);
 
         if (!SUPPORTED_CATEGORIES.contains(normalizedCategory)) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Unsupported notification category."
-            );
+            normalizedCategory = "system";
         }
 
         if (!SUPPORTED_TYPES.contains(normalizedType)) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Unsupported notification type."
-            );
+            normalizedType = "info";
         }
 
-        if (title == null || title.isBlank() || title.trim().length() > 200) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Notification title is required and must not exceed 200 characters."
-            );
+        String normalizedTitle = title == null || title.isBlank()
+                ? "Notification"
+                : title.trim();
+
+        if (normalizedTitle.length() > 200) {
+            normalizedTitle = normalizedTitle.substring(0, 200);
         }
 
-        if (message == null || message.isBlank() || message.trim().length() > 2000) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Notification message is required and must not exceed 2000 characters."
-            );
+        String normalizedMessage = message == null || message.isBlank()
+                ? normalizedTitle
+                : message.trim();
+
+        if (normalizedMessage.length() > 2000) {
+            normalizedMessage = normalizedMessage.substring(0, 2000);
         }
 
-        User recipient = users.findById(userId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "Notification recipient not found."
-                ));
+        User recipient = users.findById(userId).orElse(null);
 
-        NotificationPreferences preference = preferences.findById(userId).orElse(null);
+        if (recipient == null) {
+            return;
+        }
+
+        NotificationPreferences preference =
+                preferences.findById(userId).orElse(null);
 
         if (preference != null && !preference.isInApp()) {
             return;
         }
 
-        notifications.save(Notification.builder()
-                .user(recipient)
-                .category(normalizedCategory)
-                .type(normalizedType)
-                .title(title.trim())
-                .message(message.trim())
-                .build());
+        notifications.save(
+                Notification.builder()
+                        .user(recipient)
+                        .category(normalizedCategory)
+                        .type(normalizedType)
+                        .title(normalizedTitle)
+                        .message(normalizedMessage)
+                        .build()
+        );
     }
 }

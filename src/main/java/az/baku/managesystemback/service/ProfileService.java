@@ -34,14 +34,14 @@ public class ProfileService {
 
     @Transactional
     public ProfileResponse avatar(long id, MultipartFile f) {
-        if (f.isEmpty() || f.getSize() > 2 * 1024 * 1024)
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Avatar must be a non-empty image up to 2 MB.");
+        if (f.isEmpty() || f.getSize() > 5 * 1024 * 1024)
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Avatar must be a non-empty image up to 5 MB.");
         String type = f.getContentType();
         if (type == null || !java.util.Set.of("image/jpeg", "image/png", "image/webp").contains(type))
             throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Avatar must be JPEG, PNG or WebP.");
         try {
             byte[] bytes = f.getBytes();
-            String sig = Base64.getEncoder().encodeToString(java.util.Arrays.copyOf(bytes, Math.min(bytes.length, 12)));
+
             if (!valid(type, bytes))
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Uploaded file content is not a supported image.");
             User u = user(id);

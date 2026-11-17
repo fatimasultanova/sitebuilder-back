@@ -9,11 +9,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping({"/api/workspaces", "/workspaces"})
@@ -24,8 +24,12 @@ public class WorkspaceController {
 
     @GetMapping
     @Operation(summary = "List my workspaces")
-    public Page<WorkspaceResponse> list(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.list(u.id(), page, size);
+    public PageResponse<WorkspaceResponse> list(
+            @AuthenticationPrincipal AuthenticatedUser u,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        return PageResponse.from(service.list(u.id(), page, size));
     }
 
     @GetMapping("/{id}")
@@ -56,8 +60,13 @@ public class WorkspaceController {
     }
 
     @GetMapping("/{id}/members")
-    public Page<MemberResponse> members(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable long id, @RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.listMembers(u.id(), id, page, size);
+    public PageResponse<MemberResponse> members(
+            @AuthenticationPrincipal AuthenticatedUser u,
+            @PathVariable long id,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        return PageResponse.from(service.listMembers(u.id(), id, page, size));
     }
 
     @GetMapping("/{id}/members/{memberId}")
@@ -71,8 +80,14 @@ public class WorkspaceController {
     }
 
     @PostMapping("/{id}/members")
-    public ResponseEntity<String> invite(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable long id, @Valid @RequestBody InviteMemberRequest r) {
-        return ResponseEntity.status(201).body(service.invite(u.id(), id, r));
+    public ResponseEntity<MemberResponse> invite(
+            @AuthenticationPrincipal AuthenticatedUser u,
+            @PathVariable long id,
+            @Valid @RequestBody InviteMemberRequest r
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(service.invite(u.id(), id, r));
     }
 
     @PostMapping("/{id}/members/{memberId}/invite/resend")

@@ -2,14 +2,16 @@ spring:
   application:
     name: manage-system-back
 
-  # Docker Compose Postgres-i söndürür, aşağıdakı datasource istifadə olunur
+  # Docker Compose PostgreSQL is disabled.
+  # The datasource configuration below is used instead.
   docker:
     compose:
       enabled: false
 
   datasource:
     driver-class-name: org.postgresql.Driver
-    # Railway-də DATABASE_URL dəyişəni varsa onu oxuyur, yoxdursa lokalda localhost-a qoşulur
+    # Uses DATABASE_URL on Railway when available.
+    # Otherwise connects to the local PostgreSQL database.
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${PGUSER:postgres}
     password: ${PGPASSWORD:102007fs}
@@ -18,12 +20,17 @@ spring:
     open-in-view: false
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         default_schema: sitebuilder-data
         hbm2ddl:
           create_namespaces: true
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 app:
   mail:
@@ -34,6 +41,7 @@ app:
       connect-timeout: ${BREVO_CONNECT_TIMEOUT:3s}
       read-timeout: ${BREVO_READ_TIMEOUT:8s}
       max-retries: ${BREVO_MAX_RETRIES:2}
+
   auth:
     session-ttl: ${AUTH_SESSION_TTL:7d}
     password-reset-token-ttl: ${AUTH_RESET_TOKEN_TTL:30m}
@@ -45,6 +53,7 @@ app:
     from-email: "${AUTH_EMAIL_FROM:Site Builder <no-reply@sitebuilder.local>}"
     email-locale: ${AUTH_EMAIL_LOCALE:az}
     resend-cooldown: ${AUTH_RESEND_COOLDOWN:60s}
+
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
       client-secret: ${GOOGLE_CLIENT_SECRET:}
