@@ -12,11 +12,11 @@ spring:
     # Railway-də DATABASE_URL dəyişəni varsa onu oxuyur, yoxdursa lokalda localhost-a qoşulur
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}
     username: ${PGUSER:postgres}
-    password: ${PGPASSWORD:102007fs}
+    password: ${PGPASSWORD:}
 
   jpa:
     open-in-view: false
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     defer-datasource-initialization: true
     hibernate:
       ddl-auto: validate
