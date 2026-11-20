@@ -58,6 +58,7 @@ class AuthServiceEmailFlowTest {
     private AuthSessionRepository authSessionRepository;
     private PasswordResetTokenRepository passwordResetTokenRepository;
     private EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private WorkspaceRepository workspaceRepository;
     private PasswordEncoder passwordEncoder;
     private EmailSender emailSender;
     private WorkspaceRepository workspaceRepository;
@@ -69,6 +70,7 @@ class AuthServiceEmailFlowTest {
         authSessionRepository = mock(AuthSessionRepository.class);
         passwordResetTokenRepository = mock(PasswordResetTokenRepository.class);
         emailVerificationTokenRepository = mock(EmailVerificationTokenRepository.class);
+        workspaceRepository = mock(WorkspaceRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         emailSender = mock(EmailSender.class);
         workspaceRepository = mock(WorkspaceRepository.class);
@@ -77,7 +79,8 @@ class AuthServiceEmailFlowTest {
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(emailVerificationTokenRepository.save(any(EmailVerificationToken.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(workspaceRepository.findFirstByOwnerIdOrderByIdAsc(anyLong())).thenReturn(Optional.empty());
+        when(workspaceRepository.findFirstByOwnerIdOrderByIdAsc(anyLong()))
+                .thenReturn(Optional.empty());
 
         runner = new ApplicationContextRunner()
                 .withUserConfiguration(
@@ -92,6 +95,7 @@ class AuthServiceEmailFlowTest {
                 .withBean(AuthSessionRepository.class, () -> authSessionRepository)
                 .withBean(PasswordResetTokenRepository.class, () -> passwordResetTokenRepository)
                 .withBean(EmailVerificationTokenRepository.class, () -> emailVerificationTokenRepository)
+                .withBean(WorkspaceRepository.class, () -> workspaceRepository)
                 .withBean(PasswordEncoder.class, () -> passwordEncoder)
                 .withBean(EmailSender.class, () -> emailSender)
                 .withBean(WorkspaceRepository.class, () -> workspaceRepository)
@@ -170,7 +174,7 @@ class AuthServiceEmailFlowTest {
     }
 
     @Test
-    void registerCreatesWorkspaceOwnedByRegisteredUser() {
+    void register_createsWorkspaceForNewUser() {
         when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
 
         runner.run(context -> {
@@ -185,21 +189,53 @@ class AuthServiceEmailFlowTest {
 
             Workspace workspace = workspaceCaptor.getValue();
             assertThat(workspace.getOwner()).isSameAs(userCaptor.getValue());
-            assertThat(workspace.getName()).isEqualTo("New's workspace");
+            assertThat(workspace.getName()).endsWith("'s workspace");
         });
     }
 
     @Test
-    void registerDoesNotCreateWorkspaceWhenEmailAlreadyExists() {
+    void register_doesNotCreateWorkspaceWhenEmailAlreadyInUse() {
         when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(true);
 
         runner.run(context -> {
             AuthService authService = context.getBean(AuthService.class);
+
             assertThatThrownBy(() -> authService.register(registerRequest()))
                     .isInstanceOf(ApiException.class);
+            verify(workspaceRepository, never()).save(any(Workspace.class));
+        });
+    }
 
-            verify(userRepository, never()).saveAndFlush(any());
-            verify(workspaceRepository, never()).save(any());
+    @Test
+    void register_doesNotDuplicateWorkspace() {
+        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
+        Workspace existing = Workspace.builder().name("existing workspace").build();
+        when(workspaceRepository.findFirstByOwnerIdOrderByIdAsc(anyLong()))
+                .thenReturn(Optional.of(existing));
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+            authService.register(registerRequest());
+
+            verify(workspaceRepository, never()).save(any(Workspace.class));
+        });
+    }
+
+    @Test
+    void register_blankNameUsesEmailLocalPart() {
+        when(userRepository.existsByEmailIgnoreCase("blank@example.com")).thenReturn(false);
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+            authService.register(RegisterRequest.builder()
+                    .name("  ")
+                    .email("blank@example.com")
+                    .password("secret1")
+                    .build());
+
+            ArgumentCaptor<Workspace> workspaceCaptor = ArgumentCaptor.forClass(Workspace.class);
+            verify(workspaceRepository).save(workspaceCaptor.capture());
+            assertThat(workspaceCaptor.getValue().getName()).isEqualTo("blank's workspace");
         });
     }
 

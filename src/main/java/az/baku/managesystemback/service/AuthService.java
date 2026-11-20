@@ -307,19 +307,14 @@ public class AuthService {
         if (workspaceRepository.findFirstByOwnerIdOrderByIdAsc(user.getId()).isPresent()) {
             return;
         }
-
-        String baseName = user.getName();
-        if (baseName == null || baseName.isBlank()) {
-            String email = user.getEmail();
-            int separator = email == null ? -1 : email.indexOf('@');
-            baseName = separator > 0 ? email.substring(0, separator) : email;
+        String base = (user.getName() == null || user.getName().isBlank())
+                ? user.getEmail().substring(0, user.getEmail().indexOf('@') > 0 ? user.getEmail().indexOf('@') : user.getEmail().length())
+                : user.getName().trim();
+        String name = base + "'s workspace";
+        if (name.length() > 255) {
+            name = name.substring(0, 255);
         }
-
-        String workspaceName = truncate((baseName == null ? "" : baseName.trim()) + "'s workspace", 255);
-        workspaceRepository.save(Workspace.builder()
-                .name(workspaceName)
-                .owner(user)
-                .build());
+        workspaceRepository.save(Workspace.builder().name(name).owner(user).build());
     }
 
     private void issueVerificationToken(User user) {

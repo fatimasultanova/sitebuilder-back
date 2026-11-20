@@ -4,6 +4,16 @@
 
 ### Before starting this version
 
+Users who registered before workspaces were created on registration need one
+workspace each. Apply the backfill once per database before deploying:
+
+```bash
+psql "$DATABASE_URL" -f src/main/resources/workspaces_backfill.sql
+```
+
+`psql` needs a `postgresql://` URL, not `jdbc:postgresql://`. The script is
+idempotent and only inserts a workspace where the user has none.
+
 Hibernate runs with `ddl-auto=validate`, so the activity table must exist first.
 Apply the supplied migration once per database, then deploy:
 
