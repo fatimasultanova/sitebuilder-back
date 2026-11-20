@@ -21,6 +21,13 @@ Apply the supplied migration once per database, then deploy:
 psql "$DATABASE_URL" -f src/main/resources/activity_migration.sql
 ```
 
+Also apply the workspace backfill once per database (Railway does not run .sql
+files on deploy), so pre-existing users get a workspace:
+
+```bash
+psql "$DATABASE_URL" -f src/main/resources/workspaces_backfill.sql
+```
+
 The table stores who acted, which site the event belongs to, a human-readable
 summary and a timestamp. It deliberately has no foreign key to `sites`, so the
 trail survives a site deletion and a deleted site cannot erase its own history.

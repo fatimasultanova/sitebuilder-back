@@ -61,6 +61,7 @@ class AuthServiceEmailFlowTest {
     private WorkspaceRepository workspaceRepository;
     private PasswordEncoder passwordEncoder;
     private EmailSender emailSender;
+    private WorkspaceRepository workspaceRepository;
     private ApplicationContextRunner runner;
 
     @BeforeEach
@@ -72,6 +73,7 @@ class AuthServiceEmailFlowTest {
         workspaceRepository = mock(WorkspaceRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         emailSender = mock(EmailSender.class);
+        workspaceRepository = mock(WorkspaceRepository.class);
 
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -96,6 +98,7 @@ class AuthServiceEmailFlowTest {
                 .withBean(WorkspaceRepository.class, () -> workspaceRepository)
                 .withBean(PasswordEncoder.class, () -> passwordEncoder)
                 .withBean(EmailSender.class, () -> emailSender)
+                .withBean(WorkspaceRepository.class, () -> workspaceRepository)
                 .withBean(SecurityEventService.class, () -> mock(SecurityEventService.class));
     }
 
