@@ -13,6 +13,7 @@ import az.baku.managesystemback.entity.AuthSession;
 import az.baku.managesystemback.entity.EmailVerificationToken;
 import az.baku.managesystemback.entity.PasswordResetToken;
 import az.baku.managesystemback.entity.User;
+import az.baku.managesystemback.entity.Workspace;
 import az.baku.managesystemback.event.PasswordResetEmailRequested;
 import az.baku.managesystemback.event.VerificationEmailRequested;
 import az.baku.managesystemback.exception.ApiException;
@@ -20,6 +21,7 @@ import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
 import az.baku.managesystemback.repository.UserRepository;
+import az.baku.managesystemback.repository.WorkspaceRepository;
 import az.baku.managesystemback.util.RoleUtils;
 import az.baku.managesystemback.util.TokenUtils;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +67,7 @@ public class AuthService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuthProperties authProperties;
     private final SecurityEventService securityEventService;
+    private final WorkspaceRepository workspaceRepository;
 
     @Transactional
     public String register(RegisterRequest request) {
@@ -92,6 +95,7 @@ public class AuthService {
             throw emailAlreadyInUse();
         }
 
+        ensureWorkspace(user);
         issueVerificationToken(user);
 
         return REGISTRATION_SUCCESS_MESSAGE;
@@ -297,6 +301,20 @@ public class AuthService {
                 null,
                 session.getPublicId()
         );
+    }
+
+    private void ensureWorkspace(User user) {
+        if (workspaceRepository.findFirstByOwnerIdOrderByIdAsc(user.getId()).isPresent()) {
+            return;
+        }
+        String base = (user.getName() == null || user.getName().isBlank())
+                ? user.getEmail().substring(0, user.getEmail().indexOf('@') > 0 ? user.getEmail().indexOf('@') : user.getEmail().length())
+                : user.getName().trim();
+        String name = base + "'s workspace";
+        if (name.length() > 255) {
+            name = name.substring(0, 255);
+        }
+        workspaceRepository.save(Workspace.builder().name(name).owner(user).build());
     }
 
     private void issueVerificationToken(User user) {

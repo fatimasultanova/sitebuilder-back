@@ -6,6 +6,8 @@ import az.baku.managesystemback.dto.request.RegisterRequest;
 import az.baku.managesystemback.dto.request.ResendVerificationRequest;
 import az.baku.managesystemback.entity.EmailVerificationToken;
 import az.baku.managesystemback.entity.User;
+import az.baku.managesystemback.entity.Workspace;
+import az.baku.managesystemback.exception.ApiException;
 import az.baku.managesystemback.mail.EmailContentBuilder;
 import az.baku.managesystemback.mail.EmailMessage;
 import az.baku.managesystemback.mail.EmailSender;
@@ -13,6 +15,7 @@ import az.baku.managesystemback.repository.AuthSessionRepository;
 import az.baku.managesystemback.repository.EmailVerificationTokenRepository;
 import az.baku.managesystemback.repository.PasswordResetTokenRepository;
 import az.baku.managesystemback.repository.UserRepository;
+import az.baku.managesystemback.repository.WorkspaceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,10 +38,13 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -52,6 +58,7 @@ class AuthServiceEmailFlowTest {
     private AuthSessionRepository authSessionRepository;
     private PasswordResetTokenRepository passwordResetTokenRepository;
     private EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private WorkspaceRepository workspaceRepository;
     private PasswordEncoder passwordEncoder;
     private EmailSender emailSender;
     private ApplicationContextRunner runner;
@@ -62,6 +69,7 @@ class AuthServiceEmailFlowTest {
         authSessionRepository = mock(AuthSessionRepository.class);
         passwordResetTokenRepository = mock(PasswordResetTokenRepository.class);
         emailVerificationTokenRepository = mock(EmailVerificationTokenRepository.class);
+        workspaceRepository = mock(WorkspaceRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         emailSender = mock(EmailSender.class);
 
@@ -69,6 +77,8 @@ class AuthServiceEmailFlowTest {
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(emailVerificationTokenRepository.save(any(EmailVerificationToken.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(workspaceRepository.findFirstByOwnerIdOrderByIdAsc(anyLong()))
+                .thenReturn(Optional.empty());
 
         runner = new ApplicationContextRunner()
                 .withUserConfiguration(
@@ -83,6 +93,7 @@ class AuthServiceEmailFlowTest {
                 .withBean(AuthSessionRepository.class, () -> authSessionRepository)
                 .withBean(PasswordResetTokenRepository.class, () -> passwordResetTokenRepository)
                 .withBean(EmailVerificationTokenRepository.class, () -> emailVerificationTokenRepository)
+                .withBean(WorkspaceRepository.class, () -> workspaceRepository)
                 .withBean(PasswordEncoder.class, () -> passwordEncoder)
                 .withBean(EmailSender.class, () -> emailSender)
                 .withBean(SecurityEventService.class, () -> mock(SecurityEventService.class));
@@ -156,6 +167,72 @@ class AuthServiceEmailFlowTest {
             assertThatCode(() -> assertThat(authService.register(registerRequest())).isNotBlank())
                     .doesNotThrowAnyException();
             assertThat(attempted.await(3, TimeUnit.SECONDS)).isTrue();
+        });
+    }
+
+    @Test
+    void register_createsWorkspaceForNewUser() {
+        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+            authService.register(registerRequest());
+
+            ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).saveAndFlush(userCaptor.capture());
+
+            ArgumentCaptor<Workspace> workspaceCaptor = ArgumentCaptor.forClass(Workspace.class);
+            verify(workspaceRepository, times(1)).save(workspaceCaptor.capture());
+
+            Workspace workspace = workspaceCaptor.getValue();
+            assertThat(workspace.getOwner()).isSameAs(userCaptor.getValue());
+            assertThat(workspace.getName()).endsWith("'s workspace");
+        });
+    }
+
+    @Test
+    void register_doesNotCreateWorkspaceWhenEmailAlreadyInUse() {
+        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(true);
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+
+            assertThatThrownBy(() -> authService.register(registerRequest()))
+                    .isInstanceOf(ApiException.class);
+            verify(workspaceRepository, never()).save(any(Workspace.class));
+        });
+    }
+
+    @Test
+    void register_doesNotDuplicateWorkspace() {
+        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
+        Workspace existing = Workspace.builder().name("existing workspace").build();
+        when(workspaceRepository.findFirstByOwnerIdOrderByIdAsc(anyLong()))
+                .thenReturn(Optional.of(existing));
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+            authService.register(registerRequest());
+
+            verify(workspaceRepository, never()).save(any(Workspace.class));
+        });
+    }
+
+    @Test
+    void register_blankNameUsesEmailLocalPart() {
+        when(userRepository.existsByEmailIgnoreCase("blank@example.com")).thenReturn(false);
+
+        runner.run(context -> {
+            AuthService authService = context.getBean(AuthService.class);
+            authService.register(RegisterRequest.builder()
+                    .name("  ")
+                    .email("blank@example.com")
+                    .password("secret1")
+                    .build());
+
+            ArgumentCaptor<Workspace> workspaceCaptor = ArgumentCaptor.forClass(Workspace.class);
+            verify(workspaceRepository).save(workspaceCaptor.capture());
+            assertThat(workspaceCaptor.getValue().getName()).isEqualTo("blank's workspace");
         });
     }
 
